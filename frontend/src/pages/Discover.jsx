@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { connectionsService } from "../services";
 import Avatar from "../components/ui/Avatar.jsx";
+import RequestButton from "../components/ui/RequestButton.jsx";
 
 export default function Discover() {
   const [params] = useSearchParams();
   const [q, setQ] = useState(params.get("q") || "");
   const [results, setResults] = useState([]);
+  const qc = useQueryClient();
 
   useEffect(() => {
     if (q.length < 2) { setResults([]); return; }
@@ -26,7 +29,7 @@ export default function Discover() {
               <div className="text-sm font-medium truncate">{u.display_name || u.username}</div>
               <div className="text-xs" style={{ color: "var(--text-muted)" }}>@{u.username}</div>
             </div>
-            <button className="btn-primary" onClick={() => connectionsService.send(u.username)}>Connect</button>
+            <RequestButton username={u.username} onSent={() => qc.invalidateQueries({ queryKey: ["pending"] })} />
           </div>
         ))}
       </div>

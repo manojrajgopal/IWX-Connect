@@ -18,8 +18,10 @@ api.interceptors.response.use(
   (r) => r,
   async (err) => {
     const status = err?.response?.status;
-    const original = err.config;
-    if (status === 401 && !original.__retried) {
+    const original = err.config || {};
+    const url = (original.url || "").toString();
+    const isAuthRoute = url.includes("/auth/login") || url.includes("/auth/signup") || url.includes("/auth/refresh") || url.includes("/auth/logout");
+    if (status === 401 && !original.__retried && !isAuthRoute) {
       original.__retried = true;
       refreshing = refreshing || api.post("/auth/refresh").then((r) => {
         const access = r.data?.data?.access;
@@ -27,10 +29,14 @@ api.interceptors.response.use(
         return access;
       }).catch(() => {
         useAuthStore.getState().clear();
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/auth")) {
+          window.location.replace("/auth/login");
+        }
         return null;
       }).finally(() => { refreshing = null; });
       const access = await refreshing;
       if (access) {
+        original.headers = original.headers || {};
         original.headers.Authorization = `Bearer ${access}`;
         return api(original);
       }

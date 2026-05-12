@@ -15,7 +15,10 @@ def _client_key(request) -> str:
 def enforce(request, scope: str = "default"):
     limit, window = settings.RATE_LIMITS.get(scope, settings.RATE_LIMITS["default"])
     key = f"rl:{scope}:{_client_key(request)}:{int(time.time() // window)}"
-    count = cache.get(key, 0) + 1
-    cache.set(key, count, timeout=window)
+    try:
+        count = (cache.get(key) or 0) + 1
+        cache.set(key, count, timeout=window)
+    except Exception:
+        return
     if count > limit:
         raise Throttled(detail={"code": "rate_limited", "scope": scope})

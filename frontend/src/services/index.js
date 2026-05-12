@@ -24,6 +24,8 @@ export const chatsService = {
   messages: (id, before) => unwrap(api.get(`/chats/${id}/messages`, { params: before ? { before } : {} })),
   send:    (id, body) => unwrap(api.post(`/chats/${id}/messages/send`, { body })),
   read:    (id, up_to) => unwrap(api.post(`/chats/${id}/read`, { up_to })),
+  delivered: (id, message_ids) => unwrap(api.post(`/chats/${id}/delivered`, { message_ids })),
+  unreadSummary: () => unwrap(api.get("/chats/unread-summary")),
 };
 
 export const feedsService = {

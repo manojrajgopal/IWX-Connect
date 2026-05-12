@@ -32,17 +32,18 @@ def create_session(user, request) -> tuple[Session, str]:
         ip_class=_classify_ip(request),
         expires_at=timezone.now() + timedelta(days=settings.SESSION_TTL_DAYS),
     )
-    request._iwx_session_secret = secret  # used by attach_session_cookie
+    sess._iwx_emit_secret = secret
+    request._iwx_session_secret = secret
     request._iwx_session = sess
     access = issue_access_token(sess, request, session_secret=secret)
     return sess, access
 
 
 def attach_session_cookie(response, sess: Session):
-    secret = getattr(sess, "_iwx_emit_secret", None) or getattr(sess, "_iwx_session_secret", None)
-    cookie_value = f"{sess.public_id}.{secret}" if secret else None
-    if not cookie_value:
+    secret = getattr(sess, "_iwx_emit_secret", None)
+    if not secret:
         return
+    cookie_value = f"{sess.public_id}.{secret}"
     response.set_cookie(
         SESSION_COOKIE,
         cookie_value,
@@ -50,11 +51,12 @@ def attach_session_cookie(response, sess: Session):
         httponly=True,
         secure=settings.SESSION_COOKIE_SECURE,
         samesite="Lax",
+        path="/",
     )
 
 
 def clear_session_cookie(response):
-    response.delete_cookie(SESSION_COOKIE)
+    response.delete_cookie(SESSION_COOKIE, path="/")
 
 
 def parse_session_cookie(request) -> Session | None:

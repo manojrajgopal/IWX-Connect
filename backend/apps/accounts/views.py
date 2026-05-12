@@ -57,15 +57,19 @@ def login(request):
 
 
 @api_view(["POST"])
+@permission_classes([permissions.AllowAny])
 def logout(request):
+    user = request.user if getattr(request, "user", None) and request.user.is_authenticated else None
     session_service.revoke_current(request)
     resp = ok({"logged_out": True})
     session_service.clear_session_cookie(resp)
-    log_event(request.user, "auth.logout", request, {})
+    if user:
+        log_event(user, "auth.logout", request, {})
     return resp
 
 
 @api_view(["POST"])
+@permission_classes([permissions.AllowAny])
 def refresh(request):
     sess = session_service.get_current(request)
     if not sess:

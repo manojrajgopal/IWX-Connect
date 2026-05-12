@@ -2,6 +2,20 @@
 
 source C:/Users/Manu/anaconda3/Scripts/activate IWX-Connect
 
+# 1. Activate env
+conda activate IWX-Connect
+cd /d/infinitewavex/IWX-Connect/backend
+
+# 2. (Already done) Migrations
+python.exe manage.py makemigrations accounts security_app connections chats feeds notifications media_app
+python.exe manage.py migrate
+
+# 3. Create superuser (one-time)
+python.exe manage.py createsuperuser
+
+# 4. Start server
+python.exe -m daphne -b 0.0.0.0 -p 8000 config.asgi:application
+
 Premium social communication platform — chats, connections, feeds, reels, stories, real-time notifications.
 
 ```

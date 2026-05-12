@@ -18,3 +18,4 @@
 Thumbs.db
 .vscode
 __pycache__
+migrations

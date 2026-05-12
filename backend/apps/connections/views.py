@@ -96,8 +96,9 @@ def block(request, username: str):
         return _err("not_found", "User not found", 404)
     Block.objects.get_or_create(user=request.user, blocked=target)
     Connection.objects.filter(
-        __import__("django.db.models", fromlist=["Q"]).Q(requester=request.user, receiver=target) |
-        Q(requester=request.user, receiver=target) | 
+        Q(requester=request.user, receiver=target) |
+        Q(requester=target, receiver=request.user)
+    ).delete()
     return ok({"blocked": True})
 
 
@@ -106,5 +107,5 @@ def search_users(request):
     q = normalize_username(request.GET.get("q", ""))
     if len(q) < 2:
         return ok([])
-    qs = User.objects.filter(username__startswith=q).exclude(id=request.user.id)[:20]
+    qs = User.objects.filter(username__startswith=q).exclude(id=request.user.id).select_related("profile")[:20]
     return ok(UserPublicSerializer(qs, many=True).data)

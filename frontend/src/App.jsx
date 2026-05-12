@@ -62,11 +62,11 @@ export default function App() {
       </Route>
 
       <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
-        <Route index               element={lazyRoute(Home)} />
-        <Route path="chats"        element={lazyRoute(Chats, "list")} />
-        <Route path="requests"     element={lazyRoute(Requests, "list")} />
+        <Route index               element={lazyRoute(Home, "feed")} />
+        <Route path="chats"        element={lazyRoute(Chats, "chat")} />
+        <Route path="requests"     element={lazyRoute(Requests, "requests")} />
         <Route path="discover"     element={lazyRoute(Discover, "list")} />
-        <Route path="reels"        element={lazyRoute(Reels)} />
+        <Route path="reels"        element={lazyRoute(Reels, "reels")} />
         <Route path="profile"      element={lazyRoute(Profile, "form")} />
         <Route path="settings"     element={lazyRoute(Settings, "form")} />
         <Route path="notifications" element={lazyRoute(Notifications, "list")} />

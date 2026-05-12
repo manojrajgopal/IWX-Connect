@@ -14,12 +14,20 @@ def envelope_exception_handler(exc, context):
     code = "error"
     message = "Request failed"
     if isinstance(detail, dict):
-        message = str(detail.get("detail", message))
-        code = detail.get("code", code)
+        if "detail" in detail:
+            message = str(detail.get("detail", message))
+            code = detail.get("code", code)
+        else:
+            # Field-level validation errors: surface the first message.
+            for field, msgs in detail.items():
+                if isinstance(msgs, list) and msgs:
+                    message = f"{field}: {msgs[0]}" if field != "non_field_errors" else str(msgs[0])
+                    code = "validation_error"
+                    break
     elif isinstance(detail, list) and detail:
         message = str(detail[0])
     return Response({"ok": False, "error": {"code": code, "message": message, "details": detail}}, status=response.status_code)
 
 
 def ok(data=None, status_code=200):
-    return Response({"ok": True, "data": data or {}}, status=status_code)
+    return Response({"ok": True, "data": data if data is not None else {}}, status=status_code)

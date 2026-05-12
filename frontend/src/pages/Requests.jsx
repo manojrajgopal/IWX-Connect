@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { connectionsService, chatsService } from "../services";
 import Avatar from "../components/ui/Avatar.jsx";
+import RequestButton from "../components/ui/RequestButton.jsx";
 
 export default function Requests() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const pending = useQuery({ queryKey: ["pending"], queryFn: () => connectionsService.pending() });
   const friends = useQuery({ queryKey: ["friends"], queryFn: () => connectionsService.friends() });
   const [search, setSearch] = useState("");
@@ -25,15 +28,23 @@ export default function Requests() {
     qc.invalidateQueries({ queryKey: ["friends"] });
   };
 
-  const sendRequest = async (username) => {
-    await connectionsService.send(username);
-    setResults((r) => r.filter((u) => u.username !== username));
-  };
+  const [chatLoading, setChatLoading] = useState(null);
 
   const openChat = async (username) => {
-    await chatsService.open(username);
-    qc.invalidateQueries({ queryKey: ["conversations"] });
+    setChatLoading(username);
+    try {
+      const conv = await chatsService.open(username);
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      navigate("/chats", { state: { openConversation: conv?.public_id } });
+    } finally {
+      setChatLoading(null);
+    }
   };
+
+  const pendingList = Array.isArray(pending.data) ? pending.data : [];
+  const friendsList = Array.isArray(friends.data) ? friends.data : [];
+
+  if (pending.isLoading || friends.isLoading) return <RequestsSkeleton />;
 
   return (
     <div className="container-x py-6 md:py-8 grid lg:grid-cols-2 gap-6">
@@ -48,7 +59,7 @@ export default function Requests() {
                 <div className="text-sm font-medium truncate">{u.display_name || u.username}</div>
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>@{u.username}</div>
               </div>
-              <button className="btn-primary" onClick={() => sendRequest(u.username)}>Connect</button>
+              <RequestButton username={u.username} onSent={() => qc.invalidateQueries({ queryKey: ["pending"] })} />
             </motion.div>
           ))}
           {search.length >= 2 && !results.length && (
@@ -58,9 +69,16 @@ export default function Requests() {
       </section>
 
       <section className="card p-5">
-        <h2 className="font-serif text-2xl mb-4">Pending requests</h2>
+        <h2 className="font-serif text-2xl mb-4 flex items-center gap-2">
+          Pending requests
+          {pendingList.length > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "var(--accent)", color: "var(--accent-inverse, white)" }}>
+              {pendingList.length}
+            </span>
+          )}
+        </h2>
         <div className="flex flex-col gap-2">
-          {(pending.data || []).map((p) => (
+          {pendingList.map((p) => (
             <div key={p.id} className="flex items-center gap-3 p-2 rounded-md surface">
               <Avatar user={p.from} />
               <div className="flex-1 min-w-0">
@@ -71,26 +89,64 @@ export default function Requests() {
               <button className="btn-primary" onClick={() => respond(p.id, "accept")}>Accept</button>
             </div>
           ))}
-          {!pending.data?.length && <div className="text-sm" style={{ color: "var(--text-muted)" }}>No requests waiting.</div>}
+          {!pendingList.length && <div className="text-sm" style={{ color: "var(--text-muted)" }}>No requests waiting.</div>}
         </div>
       </section>
 
       <section className="card p-5 lg:col-span-2">
         <h2 className="font-serif text-2xl mb-4">Your connections</h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {(friends.data || []).map((u) => (
+          {friendsList.map((u) => (
             <div key={u.public_id} className="flex items-center gap-3 p-2 rounded-md surface">
               <Avatar user={u} />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{u.display_name || u.username}</div>
                 <div className="text-xs" style={{ color: "var(--text-muted)" }}>@{u.username}</div>
               </div>
-              <button className="btn" onClick={() => openChat(u.username)}>Chat</button>
+              <button className="btn" onClick={() => openChat(u.username)} disabled={chatLoading === u.username}>
+                {chatLoading === u.username ? "Opening…" : "Chat"}
+              </button>
             </div>
           ))}
-          {!friends.data?.length && <div className="text-sm" style={{ color: "var(--text-muted)" }}>You haven’t connected with anyone yet.</div>}
+          {!friendsList.length && <div className="text-sm" style={{ color: "var(--text-muted)" }}>You haven’t connected with anyone yet.</div>}
         </div>
       </section>
+    </div>
+  );
+}
+
+function RequestsSkeleton() {
+  return (
+    <div className="container-x py-6 md:py-8 grid lg:grid-cols-2 gap-6">
+      <div className="skel" style={{ borderRadius: "var(--border-radius)", padding: 20 }}>
+        <div className="skel" style={{ height: 24, width: "50%", marginBottom: 16, background: "var(--bg-surface-2)" }} />
+        <div className="skel" style={{ height: 40, marginBottom: 12, background: "var(--bg-surface-2)" }} />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 mb-3">
+            <div className="skel shrink-0" style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--bg-surface-2)" }} />
+            <div className="flex-1">
+              <div className="skel" style={{ height: 14, width: "60%", background: "var(--bg-surface-2)" }} />
+            </div>
+            <div className="skel" style={{ height: 32, width: 80, borderRadius: 6, background: "var(--bg-surface-2)" }} />
+          </div>
+        ))}
+      </div>
+      <div className="skel" style={{ borderRadius: "var(--border-radius)", padding: 20 }}>
+        <div className="skel" style={{ height: 24, width: "50%", marginBottom: 16, background: "var(--bg-surface-2)" }} />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 mb-3">
+            <div className="skel shrink-0" style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--bg-surface-2)" }} />
+            <div className="flex-1">
+              <div className="skel" style={{ height: 14, width: "50%", marginBottom: 4, background: "var(--bg-surface-2)" }} />
+              <div className="skel" style={{ height: 10, width: "30%", background: "var(--bg-surface-2)" }} />
+            </div>
+            <div className="flex gap-2">
+              <div className="skel" style={{ height: 32, width: 60, borderRadius: 6, background: "var(--bg-surface-2)" }} />
+              <div className="skel" style={{ height: 32, width: 60, borderRadius: 6, background: "var(--bg-surface-2)" }} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -4,9 +4,9 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.utils import timezone
 
-from apps.chats.models import Conversation, Membership
+from apps.chats.models import Conversation, Membership, Message, Receipt
 from apps.realtime import presence
-from apps.realtime.broadcast import push_to_conversation
+from apps.realtime.broadcast import push_to_conversation, push_to_user
 
 
 class HubConsumer(AsyncJsonWebsocketConsumer):
@@ -46,7 +46,22 @@ class HubConsumer(AsyncJsonWebsocketConsumer):
         if op == "typing":
             conv_id = content.get("conversation_id")
             if conv_id and f"chat.{conv_id}" in self.conv_groups:
-                push_to_conversation(conv_id, "typing", {"user": self.user.username, "state": content.get("state", "start")})
+                await self.channel_layer.group_send(
+                    f"chat.{conv_id}",
+                    {"type": "fanout", "event": "typing", "payload": {"user": self.user.username, "conversation_id": conv_id, "state": content.get("state", "start")}},
+                )
+            return
+        if op == "delivered":
+            conv_id = content.get("conversation_id")
+            message_ids = content.get("message_ids", [])
+            if conv_id and message_ids and f"chat.{conv_id}" in self.conv_groups:
+                await self._mark_delivered(conv_id, message_ids)
+            return
+        if op == "read":
+            conv_id = content.get("conversation_id")
+            up_to = content.get("up_to")
+            if conv_id and up_to and f"chat.{conv_id}" in self.conv_groups:
+                await self._mark_read_ws(conv_id, up_to)
             return
         if op == "subscribe_conversation":
             conv_id = content.get("conversation_id")
@@ -75,3 +90,30 @@ class HubConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def _touch_last_seen(self, user):
         type(user).objects.filter(pk=user.pk).update(last_seen_at=timezone.now())
+
+    @database_sync_to_async
+    def _mark_delivered(self, conv_id, message_ids):
+        msgs = Message.objects.filter(
+            conversation__public_id=conv_id,
+            id__in=message_ids,
+        ).exclude(sender=self.user)
+        receipts = [Receipt(message=m, user=self.user, kind=Receipt.DELIVERED) for m in msgs]
+        Receipt.objects.bulk_create(receipts, ignore_conflicts=True)
+        push_to_conversation(conv_id, "message.delivered", {
+            "conversation_id": conv_id,
+            "message_ids": message_ids,
+            "user": self.user.username,
+        })
+
+    @database_sync_to_async
+    def _mark_read_ws(self, conv_id, up_to):
+        from apps.chats.services import mark_read as svc_mark_read
+        conv = Conversation.objects.filter(public_id=conv_id).first()
+        if not conv:
+            return
+        svc_mark_read(conv, self.user, up_to)
+        push_to_conversation(conv_id, "message.read", {
+            "conversation_id": conv_id,
+            "user": self.user.username,
+            "up_to": up_to,
+        })

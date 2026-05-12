@@ -1,4 +1,6 @@
+from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
+from rest_framework.exceptions import Throttled
 
 from .services.ratelimit import enforce
 
@@ -16,16 +18,11 @@ class RateLimitMiddleware(MiddlewareMixin):
     def process_request(self, request):
         try:
             enforce(request, "default")
-        except Exception as exc:  # noqa: BLE001
-            from rest_framework.response import Response
-            from rest_framework.renderers import JSONRenderer
-
-            r = Response({"ok": False, "error": {"code": "rate_limited", "message": "Too many requests"}}, status=429)
-            r.accepted_renderer = JSONRenderer()
-            r.accepted_media_type = "application/json"
-            r.renderer_context = {}
-            r.render()
-            return r
+        except Throttled:
+            return JsonResponse(
+                {"ok": False, "error": {"code": "rate_limited", "message": "Too many requests"}},
+                status=429,
+            )
 
 
 class SessionTokenMiddleware(MiddlewareMixin):

@@ -5,10 +5,11 @@ from apps.accounts.models import User
 from apps.core.exceptions import ok
 from apps.core.utils import normalize_username
 from apps.realtime.broadcast import push_to_conversation, push_to_user
+from apps.realtime.presence import is_online
 from apps.security.services.ratelimit import enforce
 
 from . import services
-from .models import Conversation, Message
+from .models import Conversation, Message, Receipt
 from .serializers import ConversationSerializer, MessageSerializer
 
 
@@ -41,11 +42,11 @@ def list_messages(request, public_id: str):
     if not conv:
         return _err("not_found", "Conversation not found", 404)
     before = request.GET.get("before")
-    qs = conv.messages.order_by("-id")
+    qs = conv.messages.select_related("sender__profile").prefetch_related("receipts").order_by("-id")
     if before:
         qs = qs.filter(id__lt=int(before))
     qs = qs[:50]
-    return ok(MessageSerializer(reversed(list(qs)), many=True).data)
+    return ok(MessageSerializer(reversed(list(qs)), many=True, context={"user": request.user}).data)
 
 
 @api_view(["POST"])
@@ -60,10 +61,15 @@ def send(request, public_id: str):
     if kind == Message.TEXT and not body:
         return _err("invalid", "Empty message")
     msg = services.send_message(conv, request.user, kind, body, media_ref=media_ref)
-    payload = MessageSerializer(msg).data
+    payload = MessageSerializer(msg, context={"user": request.user}).data
+    payload["conversation_id"] = str(conv.public_id)
     push_to_conversation(conv.public_id, "message.new", payload)
     for mem in conv.memberships.exclude(user=request.user):
-        push_to_user(mem.user_id, "conversation.bump", {"conversation_id": str(conv.public_id), "preview": body[:80]})
+        push_to_user(mem.user_id, "conversation.bump", {
+            "conversation_id": str(conv.public_id),
+            "preview": body[:80],
+            "sender": request.user.username,
+        })
     return ok(payload, status_code=201)
 
 
@@ -74,5 +80,53 @@ def mark_read(request, public_id: str):
         return _err("not_found", "Conversation not found", 404)
     up_to = int(request.data.get("up_to") or 0)
     services.mark_read(conv, request.user, up_to)
-    push_to_conversation(conv.public_id, "message.read", {"user": request.user.username, "up_to": up_to})
+    push_to_conversation(conv.public_id, "message.read", {
+        "conversation_id": str(conv.public_id),
+        "user": request.user.username,
+        "up_to": up_to,
+    })
     return ok({"marked": True})
+
+
+@api_view(["POST"])
+def mark_delivered(request, public_id: str):
+    conv = Conversation.objects.filter(public_id=public_id, memberships__user=request.user).first()
+    if not conv:
+        return _err("not_found", "Conversation not found", 404)
+    message_ids = request.data.get("message_ids", [])
+    if not message_ids:
+        return _err("invalid", "No message_ids provided")
+    msgs = Message.objects.filter(
+        conversation=conv, id__in=message_ids
+    ).exclude(sender=request.user)
+    receipts = [Receipt(message=m, user=request.user, kind=Receipt.DELIVERED) for m in msgs]
+    Receipt.objects.bulk_create(receipts, ignore_conflicts=True)
+    push_to_conversation(conv.public_id, "message.delivered", {
+        "conversation_id": str(conv.public_id),
+        "message_ids": message_ids,
+        "user": request.user.username,
+    })
+    return ok({"delivered": True})
+
+
+@api_view(["GET"])
+def unread_summary(request):
+    """Returns total unread conversations count for sidebar badge."""
+    from django.db.models import Q, Count, Subquery, OuterRef, IntegerField
+    from .models import Membership
+    memberships = Membership.objects.filter(
+        user=request.user
+    ).select_related("conversation").only(
+        "last_read_message_id", "conversation_id", "conversation__id"
+    )
+    total_unread_convos = 0
+    total_unread_msgs = 0
+    for m in memberships:
+        last_read = m.last_read_message_id or 0
+        count = Message.objects.filter(
+            conversation_id=m.conversation_id, id__gt=last_read
+        ).exclude(sender=request.user).count()
+        if count > 0:
+            total_unread_convos += 1
+            total_unread_msgs += count
+    return ok({"unread_conversations": total_unread_convos, "unread_messages": total_unread_msgs})

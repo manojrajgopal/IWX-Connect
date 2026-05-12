@@ -3,7 +3,19 @@ import { motion } from "framer-motion";
 import { feedsService } from "../services";
 
 export default function Reels() {
-  const { data } = useQuery({ queryKey: ["reels"], queryFn: () => feedsService.feed("reel") });
+  const { data, isLoading } = useQuery({ queryKey: ["reels"], queryFn: () => feedsService.feed("reel") });
+
+  if (isLoading) {
+    return (
+      <div className="h-[calc(100vh-var(--header-height)-var(--mobilebar-height))] md:h-[calc(100vh-var(--header-height))] flex items-center justify-center" style={{ background: "var(--bg-base)" }}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="skel" style={{ width: 48, height: 48, borderRadius: "50%" }} />
+          <div className="skel" style={{ height: 14, width: 120 }} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-var(--header-height)-var(--mobilebar-height))] md:h-[calc(100vh-var(--header-height))] overflow-y-scroll snap-y snap-mandatory" style={{ scrollSnapType: "y mandatory" }}>
       {(data || []).map((p) => (

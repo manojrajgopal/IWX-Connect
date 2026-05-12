@@ -69,6 +69,10 @@ def mark_read(conv: Conversation, user, up_to_message_id: int):
 def list_user_conversations(user):
     return (
         Conversation.objects.filter(memberships__user=user)
+        .exclude(last_message_at__isnull=True)
         .order_by("-last_message_at")
-        .prefetch_related("memberships__user__profile")
+        .prefetch_related(
+            "memberships__user__profile",
+            "messages",
+        )
     )
