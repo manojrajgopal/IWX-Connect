@@ -1,0 +1,47 @@
+.iwx-splash {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-page); color: var(--text-primary);
+  cursor: pointer; user-select: none;
+  padding: 2rem 1.5rem;
+  animation: iwx-fade 0.4s ease;
+  font-family: var(--font-sans);
+}
+.iwx-splash--loading { cursor: default; }
+
+.iwx-splash__intro { display: flex; flex-direction: column; align-items: center; gap: 0.85rem; text-align: center; animation: iwx-fade-up 0.6s ease both; }
+.iwx-splash__brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 0.5rem; }
+.iwx-splash__logo {
+  font-family: var(--font-serif);
+  font-size: clamp(3.5rem, 9vw, 5.5rem);
+  font-weight: 800; letter-spacing: -0.04em; line-height: 0.95;
+}
+.iwx-splash__since { font-size: 0.7rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text-muted); }
+.iwx-splash__title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.4rem, 3vw, 2.1rem);
+  font-weight: 600; letter-spacing: -0.01em; margin: 0.5rem 0 0;
+}
+.iwx-splash__tagline { font-size: 0.95rem; color: var(--text-secondary); max-width: 36ch; margin: 0; }
+.iwx-splash__hint {
+  margin-top: 1.75rem; padding: 0.6rem 1.25rem;
+  border: 1px solid var(--border-color); border-radius: 999px;
+  font-size: 0.7rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-secondary);
+  animation: iwx-pulse 1.8s ease-in-out infinite;
+}
+
+.iwx-splash__loader { display: flex; flex-direction: column; align-items: center; gap: 1.4rem; width: min(440px, 92vw); animation: iwx-fade-up 0.5s ease both; }
+.iwx-splash__scene  { width: 100%; height: 180px; display: flex; align-items: center; justify-content: center; }
+.iwx-splash__svg    { display: block; max-width: 100%; height: 100%; color: var(--text-primary); }
+
+.iwx-splash__ring   { animation: iwx-orbit 6s linear infinite; transform-origin: 100px 80px; }
+.iwx-splash__node   { transform-origin: 100px 80px; }
+.iwx-splash__node--a { animation: iwx-orbit 6s linear infinite; }
+.iwx-splash__node--b { animation: iwx-orbit 6s linear infinite reverse; }
+.iwx-splash__node--c { animation: iwx-orbit 9s linear infinite; }
+
+.iwx-splash__core   { animation: iwx-pulse 2.4s ease-in-out infinite; transform-origin: 100px 80px; }
+
+.iwx-splash__track  { width: 100%; height: 3px; background: var(--border-color); border-radius: 999px; overflow: hidden; }
+.iwx-splash__fill   { height: 100%; background: var(--accent); transition: width 50ms linear; border-radius: 999px; }
+.iwx-splash__caption { font-size: 0.7rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-muted); margin: 0; }

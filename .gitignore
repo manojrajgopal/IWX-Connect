@@ -1,0 +1,20 @@
+# Build artefacts
+**/__pycache__/
+**/*.pyc
+**/.venv/
+**/node_modules/
+**/dist/
+**/build/
+**/.vite/
+**/staticfiles/
+**/uploads/
+
+# Local environment
+**/.env
+**/.env.local
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode
+__pycache__
