@@ -104,11 +104,81 @@ function titleFor(event, payload) {
     case "message.new":        return { title: payload?.author?.username ? `New message from @${payload.author.username}` : "New message", body: payload?.preview || payload?.body || "Open IWX Connect to read." };
     case "feed.like":          return { title: "Someone liked your post", body: payload?.by ? `@${payload.by} liked your post` : "" };
     case "feed.comment":       return { title: "New comment",             body: payload?.by ? `@${payload.by} commented on your post` : "" };
+    case "feed.new":           return { title: "New post",                body: payload?.author?.username ? `@${payload.author.username} shared a new post` : "A connection posted something" };
+    case "reel.new":           return { title: "New reel",                body: payload?.author?.username ? `@${payload.author.username} added a reel` : "A new reel is up" };
+    case "story.new":          return { title: "New story",               body: payload?.author?.username ? `@${payload.author.username} added a story` : "Someone added a story" };
+    case "story.view":         return { title: "Story view",              body: payload?.by ? `@${payload.by} viewed your story` : "" };
     default:                   return { title: "IWX Connect",             body: payload?.preview || event };
   }
 }
 
+function invalidateFeedQueries(qc, kind) {
+  // Prefix-matching invalidation in React Query — these match all variants.
+  qc.invalidateQueries({ queryKey: ["feed"] });
+  qc.invalidateQueries({ queryKey: ["reels"] });
+  qc.invalidateQueries({ queryKey: ["stories"] });
+  qc.invalidateQueries({ queryKey: ["explore"] });
+  qc.invalidateQueries({ queryKey: ["user-posts"] });
+  qc.invalidateQueries({ queryKey: ["public-profile"] });
+  if (kind === "saved") qc.invalidateQueries({ queryKey: ["bookmarks"] });
+}
+
+function patchPostInCaches(qc, publicId, patch) {
+  // Update every cached list of posts that contains this post, in place.
+  const queries = qc.getQueryCache().findAll();
+  for (const q of queries) {
+    const data = q.state.data;
+    if (!Array.isArray(data)) continue;
+    if (!data.length || !data[0] || typeof data[0] !== "object" || !("public_id" in data[0])) continue;
+    let changed = false;
+    const next = data.map((p) => {
+      if (p?.public_id === publicId) { changed = true; return { ...p, ...patch }; }
+      return p;
+    });
+    if (changed) qc.setQueryData(q.queryKey, next);
+  }
+}
+
 function route(event, payload, qc) {
+  // ── New content from connections ─────────────────────────────────────────
+  if (event === "feed.new" || event === "reel.new" || event === "story.new") {
+    invalidateFeedQueries(qc);
+    const me = useAuthStore.getState().user;
+    if (payload?.author?.username !== me?.username) {
+      const { title, body } = titleFor(event, payload);
+      showOSNotification(title, body);
+    }
+    return;
+  }
+  if (event === "feed.delete") {
+    const pid = payload?.public_id;
+    if (pid) {
+      // Remove the deleted post from all cached arrays immediately.
+      for (const q of qc.getQueryCache().findAll()) {
+        const data = q.state.data;
+        if (!Array.isArray(data) || !data.length || !data[0]?.public_id) continue;
+        const filtered = data.filter((p) => p?.public_id !== pid);
+        if (filtered.length !== data.length) qc.setQueryData(q.queryKey, filtered);
+      }
+    }
+    invalidateFeedQueries(qc);
+    return;
+  }
+  if (event === "feed.update") {
+    // Live patch likes_count / comments_count across all cached lists.
+    const { public_id, new_comment, ...patch } = payload || {};
+    if (public_id) patchPostInCaches(qc, public_id, patch);
+    // Push new comment to any open PostCard comment panel via window event.
+    if (new_comment && public_id) {
+      window.dispatchEvent(new CustomEvent("iwx:new-comment", { detail: { post_id: public_id, comment: new_comment } }));
+    }
+    return;
+  }
+  if (event === "story.view") {
+    // Author-only event; nothing to refetch but could update a viewer count.
+    return;
+  }
+
   if (event === "message.new") {
     const convId = payload?.conversation_id || payload?.conversation_public_id;
     const me = useAuthStore.getState().user;

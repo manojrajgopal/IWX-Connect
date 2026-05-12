@@ -65,28 +65,8 @@
 
 /* ── Loading Stage ── */
 .iwx-splash__loader { display: flex; flex-direction: column; align-items: center; gap: 1.2rem; width: min(440px, 92vw); animation: iwx-fade-up 0.5s ease both; }
-.iwx-splash__scene  { width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; }
-.iwx-splash__svg    { display: block; color: var(--text-primary); }
-
-.iwx-splash__pulse-ring { animation: iwx-pulse-ring 3s ease-in-out infinite; transform-origin: 100px 100px; }
-.iwx-splash__pulse-ring--2 { animation-delay: 0.5s; }
-
-.iwx-splash__orbit-group { transform-origin: 100px 100px; }
-.iwx-splash__orbiter { transform-origin: 100px 100px; }
-.iwx-splash__orbiter--1 { animation: iwx-orbit 4s linear infinite; }
-.iwx-splash__orbiter--2 { animation: iwx-orbit 4s linear infinite reverse; }
-.iwx-splash__orbiter--3 { animation: iwx-orbit 6s linear infinite; }
-
-.iwx-splash__core { animation: iwx-pulse 2.4s ease-in-out infinite; transform-origin: 100px 100px; }
-
-.iwx-splash__beam {
-  stroke-dasharray: 40;
-  stroke-dashoffset: 40;
-  animation: iwx-draw 1.5s ease forwards infinite alternate;
-}
-.iwx-splash__beam--1 { animation-delay: 0s; }
-.iwx-splash__beam--2 { animation-delay: 0.3s; }
-.iwx-splash__beam--3 { animation-delay: 0.6s; }
+.iwx-splash__scene  { width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; }
+.iwx-splash__svg    { display: block; color: var(--text-primary); overflow: visible; }
 
 .iwx-splash__brand-small {
   display: flex; align-items: baseline; gap: 0.3rem;
@@ -99,10 +79,175 @@
 .iwx-splash__fill   { height: 100%; background: var(--text-primary); transition: width 40ms linear; border-radius: 999px; }
 .iwx-splash__caption { font-size: 0.7rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-muted); margin: 0; }
 
-/* ── Keyframes ── */
+/* ══════════════════════════════════════════════════
+   Loading Animation — Social Network
+   ══════════════════════════════════════════════════ */
+
+/* Rotating rings */
+.iwx-anim__ring { transform-origin: 120px 120px; }
+.iwx-anim__ring--outer { animation: iwx-spin 20s linear infinite; }
+.iwx-anim__ring--inner { animation: iwx-spin 14s linear infinite reverse; }
+
+/* Network connection lines draw in */
+.iwx-anim__netline {
+  stroke-dasharray: 120;
+  stroke-dashoffset: 120;
+  animation: iwx-draw 1s ease forwards;
+}
+.iwx-anim__netline--1 { animation-delay: 0s; }
+.iwx-anim__netline--2 { animation-delay: 0.12s; }
+.iwx-anim__netline--3 { animation-delay: 0.24s; }
+.iwx-anim__netline--4 { animation-delay: 0.36s; }
+.iwx-anim__netline--5 { animation-delay: 0.48s; }
+.iwx-anim__netline--6 { animation-delay: 0.6s; }
+.iwx-anim__netline--7 { animation-delay: 0.8s; }
+.iwx-anim__netline--8 { animation-delay: 0.9s; }
+.iwx-anim__netline--9 { animation-delay: 1.0s; }
+
+/* Person nodes pop in with stagger */
+.iwx-anim__person {
+  opacity: 0;
+  animation: iwx-person-appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.iwx-anim__person--1 { animation-delay: 0.3s; }
+.iwx-anim__person--2 { animation-delay: 0.45s; }
+.iwx-anim__person--3 { animation-delay: 0.6s; }
+.iwx-anim__person--4 { animation-delay: 0.75s; }
+.iwx-anim__person--5 { animation-delay: 0.9s; }
+.iwx-anim__person--6 { animation-delay: 1.05s; }
+
+.iwx-anim__person-glow {
+  animation: iwx-person-glow 2.5s ease-in-out infinite;
+}
+.iwx-anim__person--1 .iwx-anim__person-glow { animation-delay: 0s; }
+.iwx-anim__person--2 .iwx-anim__person-glow { animation-delay: 0.4s; }
+.iwx-anim__person--3 .iwx-anim__person-glow { animation-delay: 0.8s; }
+.iwx-anim__person--4 .iwx-anim__person-glow { animation-delay: 1.2s; }
+.iwx-anim__person--5 .iwx-anim__person-glow { animation-delay: 1.6s; }
+.iwx-anim__person--6 .iwx-anim__person-glow { animation-delay: 2.0s; }
+
+/* Central hub */
+.iwx-anim__hub { animation: iwx-hub-pulse 3s ease-in-out infinite; transform-origin: 120px 120px; }
+.iwx-anim__hub-glow { animation: iwx-hub-glow 2.5s ease-in-out infinite; transform-origin: 120px 120px; }
+.iwx-anim__hub-text { animation: iwx-fade 0.8s ease 0.6s both; }
+
+/* Floating social icons orbit the hub */
+.iwx-anim__float {
+  opacity: 0;
+  animation: iwx-float-appear 0.5s ease forwards;
+}
+.iwx-anim__float--chat {
+  animation-delay: 1.2s;
+  transform-origin: 120px 120px;
+  animation: iwx-float-appear 0.5s ease 1.2s forwards, iwx-float-orbit-1 8s linear 1.7s infinite;
+}
+.iwx-anim__float--heart {
+  animation-delay: 1.5s;
+  transform-origin: 120px 120px;
+  animation: iwx-float-appear 0.5s ease 1.5s forwards, iwx-float-orbit-2 10s linear 2s infinite;
+}
+.iwx-anim__float--camera {
+  animation-delay: 1.8s;
+  transform-origin: 120px 120px;
+  animation: iwx-float-appear 0.5s ease 1.8s forwards, iwx-float-orbit-3 12s linear 2.3s infinite;
+}
+.iwx-anim__float--story {
+  animation-delay: 2.1s;
+  transform-origin: 120px 120px;
+  animation: iwx-float-appear 0.5s ease 2.1s forwards, iwx-float-orbit-4 9s linear 2.6s infinite;
+}
+
+.iwx-anim__story-ring {
+  animation: iwx-spin 3s linear infinite;
+  transform-origin: 0 0;
+}
+
+/* Data particles traveling along network lines */
+.iwx-anim__particle--1 { animation: iwx-particle-1 2.5s ease-in-out 0.5s infinite; }
+.iwx-anim__particle--2 { animation: iwx-particle-2 3s ease-in-out 1s infinite; }
+.iwx-anim__particle--3 { animation: iwx-particle-3 2.8s ease-in-out 1.5s infinite; }
+.iwx-anim__particle--4 { animation: iwx-particle-4 3.2s ease-in-out 0.8s infinite; }
+
+/* ══════════════════════════════════════════════════
+   Keyframes
+   ══════════════════════════════════════════════════ */
+
 @keyframes iwx-dot-appear {
   from { opacity: 0; transform: scale(0); }
   to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes iwx-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes iwx-person-appear {
+  from { opacity: 0; transform: scale(0) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes iwx-person-glow {
+  0%, 100% { opacity: 0.1; r: 6; }
+  50%      { opacity: 0.3; r: 10; }
+}
+
+@keyframes iwx-hub-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.06); }
+}
+
+@keyframes iwx-hub-glow {
+  0%, 100% { opacity: 0.04; }
+  50%      { opacity: 0.12; }
+}
+
+@keyframes iwx-float-appear {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Each floating icon orbits at a unique radius using translate + rotate */
+@keyframes iwx-float-orbit-1 {
+  from { transform: rotate(0deg)   translate(42px) rotate(0deg); }
+  to   { transform: rotate(360deg) translate(42px) rotate(-360deg); }
+}
+@keyframes iwx-float-orbit-2 {
+  from { transform: rotate(90deg)  translate(50px) rotate(-90deg); }
+  to   { transform: rotate(450deg) translate(50px) rotate(-450deg); }
+}
+@keyframes iwx-float-orbit-3 {
+  from { transform: rotate(180deg) translate(38px) rotate(-180deg); }
+  to   { transform: rotate(540deg) translate(38px) rotate(-540deg); }
+}
+@keyframes iwx-float-orbit-4 {
+  from { transform: rotate(270deg) translate(46px) rotate(-270deg); }
+  to   { transform: rotate(630deg) translate(46px) rotate(-630deg); }
+}
+
+/* Particles travel along network lines (center to person nodes) */
+@keyframes iwx-particle-1 {
+  0%   { cx: 120; cy: 120; opacity: 0; }
+  10%  { opacity: 0.7; }
+  90%  { opacity: 0.7; }
+  100% { cx: 120; cy: 38; opacity: 0; }
+}
+@keyframes iwx-particle-2 {
+  0%   { cx: 197; cy: 75; opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.6; }
+  100% { cx: 120; cy: 120; opacity: 0; }
+}
+@keyframes iwx-particle-3 {
+  0%   { cx: 120; cy: 120; opacity: 0; }
+  10%  { opacity: 0.5; }
+  90%  { opacity: 0.5; }
+  100% { cx: 43; cy: 165; opacity: 0; }
+}
+@keyframes iwx-particle-4 {
+  0%   { cx: 43; cy: 69; opacity: 0; }
+  10%  { opacity: 0.6; }
+  90%  { opacity: 0.6; }
+  100% { cx: 120; cy: 120; opacity: 0; }
 }
 
 @keyframes iwx-pulse-ring {

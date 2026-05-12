@@ -2,11 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiSend, FiArrowLeft, FiCheck, FiCheckCircle, FiSearch } from "react-icons/fi";
-import { chatsService } from "../services";
+import { FiSend, FiArrowLeft, FiCheck, FiCheckCircle, FiSearch, FiPaperclip, FiX, FiFile, FiDownload } from "react-icons/fi";
+import { chatsService, mediaService } from "../services";
 import { useAuthStore } from "../stores/authStore";
 import { useChatStore } from "../stores/chatStore";
 import Avatar from "../components/ui/Avatar.jsx";
+
+function kindFromMime(mime = "") {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
+  return "file";
+}
 
 export default function Chats() {
   const me = useAuthStore((s) => s.user);
@@ -218,8 +225,10 @@ function Thread({ conversation, onBack, onSent }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pendingFile, setPendingFile] = useState(null); // { file, kind, previewUrl, progress }
   const scrollerRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const typingTimerRef = useRef(null);
   const lastReadRef = useRef(0);
 
@@ -299,20 +308,34 @@ function Thread({ conversation, onBack, onSent }) {
     typingTimerRef.current = setTimeout(() => emitTyping("stop"), 2000);
   };
 
+  const onPickFile = (file) => {
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) return;
+    const previewUrl = file.type.startsWith("image/") || file.type.startsWith("video/")
+      ? URL.createObjectURL(file) : null;
+    setPendingFile({ file, kind: kindFromMime(file.type), previewUrl, progress: 0 });
+  };
+
+  const clearPendingFile = () => {
+    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+    setPendingFile(null);
+  };
+
   const send = async (e) => {
     e.preventDefault();
     const body = draft.trim();
-    if (!body || sending) return;
+    if (sending) return;
+    if (!body && !pendingFile) return;
     setDraft("");
     setSending(true);
     emitTyping("stop");
 
-    // Optimistic: show message instantly
     const optimisticMsg = {
       public_id: `temp-${Date.now()}`,
       body,
       sender: me,
-      kind: "text",
+      kind: pendingFile?.kind || "text",
+      media_ref: pendingFile?.previewUrl || "",
       status: "sending",
       created_at: new Date().toISOString(),
       _optimistic: true,
@@ -320,15 +343,27 @@ function Thread({ conversation, onBack, onSent }) {
     setMessages((m) => [...m, optimisticMsg]);
 
     try {
-      const msg = await chatsService.send(conversation.public_id, body);
-      // Replace optimistic with real message, and deduplicate any WebSocket echo
+      let media_ref = "";
+      let kind = "text";
+      if (pendingFile) {
+        const asset = await mediaService.upload(pendingFile.file, (p) => {
+          setPendingFile((cur) => cur ? { ...cur, progress: p } : cur);
+        });
+        media_ref = asset.url;
+        kind = pendingFile.kind;
+      }
+      const msg = await chatsService.send(conversation.public_id, {
+        body: body || (kind === "text" ? "" : " "),
+        kind,
+        media_ref,
+      });
       setMessages((m) => {
         const withoutDupes = m.filter((x) => x.public_id !== optimisticMsg.public_id && x.public_id !== msg.public_id);
         return [...withoutDupes, msg];
       });
+      clearPendingFile();
       onSent?.();
     } catch {
-      // Remove optimistic on failure
       setMessages((m) => m.filter((x) => x.public_id !== optimisticMsg.public_id));
     } finally {
       setSending(false);
@@ -430,30 +465,66 @@ function Thread({ conversation, onBack, onSent }) {
       </div>
 
       {/* Input Area */}
-      <form
-        onSubmit={send}
-        className="flex items-center gap-2 p-3 border-t"
-        style={{ borderColor: "var(--border-color)", background: "var(--bg-surface)" }}
-      >
-        <input
-          ref={inputRef}
-          className="input flex-1"
-          placeholder="Message..."
-          value={draft}
-          onChange={handleInputChange}
-          autoFocus
-        />
-        <motion.button
-          whileTap={{ scale: 0.85 }}
-          whileHover={{ scale: 1.05 }}
-          type="submit"
-          disabled={!draft.trim() || sending}
-          className="btn-primary p-2.5 rounded-full disabled:opacity-40 transition-all"
-          style={{ background: "var(--accent)", color: "var(--accent-inverse)" }}
-        >
-          <FiSend size={18} />
-        </motion.button>
-      </form>
+      <div className="border-t" style={{ borderColor: "var(--border-color)", background: "var(--bg-surface)" }}>
+        {pendingFile && (
+          <div className="px-3 pt-3 pb-1 flex items-center gap-3">
+            <div className="relative rounded-md overflow-hidden" style={{ width: 64, height: 64, background: "var(--bg-surface-2)" }}>
+              {pendingFile.kind === "image" && pendingFile.previewUrl && <img src={pendingFile.previewUrl} alt="" className="w-full h-full object-cover" />}
+              {pendingFile.kind === "video" && pendingFile.previewUrl && <video src={pendingFile.previewUrl} className="w-full h-full object-cover" muted />}
+              {(pendingFile.kind === "file" || pendingFile.kind === "audio") && (
+                <div className="w-full h-full flex items-center justify-center"><FiFile size={24} /></div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs truncate">{pendingFile.file.name}</div>
+              <div className="text-[11px]" style={{ color: "var(--text-muted)" }}>{(pendingFile.file.size / 1024).toFixed(0)} KB</div>
+              {sending && (
+                <div className="w-full h-1 mt-1 rounded" style={{ background: "var(--bg-surface-2)" }}>
+                  <div className="h-full rounded" style={{ width: `${pendingFile.progress}%`, background: "var(--accent)" }} />
+                </div>
+              )}
+            </div>
+            <button onClick={clearPendingFile} className="btn-ghost p-1.5 rounded-full" aria-label="Remove"><FiX size={14} /></button>
+          </div>
+        )}
+        <form onSubmit={send} className="flex items-center gap-2 p-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            accept="image/*,video/*,audio/*,application/pdf,application/zip,.doc,.docx,.xls,.xlsx,.txt"
+            onChange={(e) => onPickFile(e.target.files?.[0])}
+          />
+          <motion.button
+            type="button"
+            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={() => fileInputRef.current?.click()}
+            className="btn-ghost p-2 rounded-full"
+            title="Attach"
+          >
+            <FiPaperclip size={18} />
+          </motion.button>
+          <input
+            ref={inputRef}
+            className="input flex-1"
+            placeholder="Message..."
+            value={draft}
+            onChange={handleInputChange}
+            autoFocus
+          />
+          <motion.button
+            whileTap={{ scale: 0.85 }}
+            whileHover={{ scale: 1.05 }}
+            type="submit"
+            disabled={(!draft.trim() && !pendingFile) || sending}
+            className="btn-primary p-2.5 rounded-full disabled:opacity-40 transition-all"
+            style={{ background: "var(--accent)", color: "var(--accent-inverse)" }}
+          >
+            <FiSend size={18} />
+          </motion.button>
+        </form>
+      </div>
     </>
   );
 }
@@ -471,7 +542,7 @@ function MessageBubble({ message, mine, showAvatar, other }) {
       {!mine && showAvatar && <Avatar user={other} size={28} />}
       {!mine && !showAvatar && <div style={{ width: 28 }} />}
       <div
-        className={`px-3.5 py-2 text-sm leading-relaxed ${mine ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md"}`}
+        className={`text-sm leading-relaxed overflow-hidden ${mine ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md"}`}
         style={{
           background: mine ? "var(--accent)" : "var(--bg-surface)",
           color: mine ? "var(--accent-inverse)" : "var(--text-primary)",
@@ -479,8 +550,11 @@ function MessageBubble({ message, mine, showAvatar, other }) {
           boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
         }}
       >
-        <div>{message.body}</div>
-        <div className={`flex items-center gap-1 mt-0.5 ${mine ? "justify-end" : "justify-start"}`}>
+        <MediaContent message={message} />
+        {(message.body || message.kind === "text") && (
+          <div className="px-3.5 py-2">{message.body}</div>
+        )}
+        <div className={`flex items-center gap-1 px-3.5 pb-1.5 ${mine ? "justify-end" : "justify-start"}`}>
           <span className="text-[10px] opacity-60">
             {formatTime(message.created_at)}
           </span>
@@ -554,6 +628,37 @@ function TypingDots({ small }) {
         />
       ))}
     </span>
+  );
+}
+
+/* ─── Media Content (image/video/audio/file in a message bubble) ─── */
+function MediaContent({ message }) {
+  const { kind, media_ref } = message;
+  if (!media_ref || kind === "text") return null;
+  if (kind === "image") {
+    return (
+      <a href={media_ref} target="_blank" rel="noreferrer" className="block">
+        <img src={media_ref} alt="" className="block max-w-[280px] max-h-[320px] object-cover" style={{ background: "rgba(0,0,0,0.05)" }} />
+      </a>
+    );
+  }
+  if (kind === "video") {
+    return <video src={media_ref} controls playsInline className="block max-w-[320px] max-h-[360px]" style={{ background: "#000" }} />;
+  }
+  if (kind === "audio") {
+    return <audio src={media_ref} controls className="block px-3.5 pt-2" />;
+  }
+  // file
+  const filename = (() => { try { return decodeURIComponent(new URL(media_ref, window.location.href).pathname.split("/").pop() || "file"); } catch { return "file"; } })();
+  return (
+    <a href={media_ref} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-3.5 py-2.5" style={{ minWidth: 200 }}>
+      <FiFile size={28} />
+      <div className="flex-1 min-w-0">
+        <div className="text-xs truncate">{filename}</div>
+        <div className="text-[10px] opacity-70">Tap to open</div>
+      </div>
+      <FiDownload size={16} className="opacity-70" />
+    </a>
   );
 }
 

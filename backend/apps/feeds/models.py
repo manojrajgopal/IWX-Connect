@@ -52,3 +52,14 @@ class StoryView(models.Model):
     class Meta:
         db_table = "feeds_story_view"
         unique_together = (("post", "user"),)
+
+
+class Bookmark(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="bookmarks")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks")
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "feeds_bookmark"
+        unique_together = (("post", "user"),)
+        indexes = [models.Index(fields=["user", "-at"])]

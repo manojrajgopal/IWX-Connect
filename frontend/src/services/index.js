@@ -7,6 +7,12 @@ export const authService = {
   me:     () => unwrap(api.get("/auth/me")),
   updateProfile: (payload) => unwrap(api.patch("/auth/me/profile", payload)),
   preferences: (payload) => unwrap(payload ? api.patch("/auth/me/preferences", payload) : api.get("/auth/me/preferences")),
+  uploadPhoto: (file, kind = "avatar") => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return unwrap(api.post(`/auth/me/photo?kind=${kind}`, fd, { headers: { "Content-Type": "multipart/form-data" } }));
+  },
+  publicProfile: (username) => unwrap(api.get(`/auth/users/${username}`)),
 };
 
 export const connectionsService = {
@@ -22,7 +28,11 @@ export const chatsService = {
   list:    () => unwrap(api.get("/chats/")),
   open:    (username) => unwrap(api.post("/chats/direct", { username })),
   messages: (id, before) => unwrap(api.get(`/chats/${id}/messages`, { params: before ? { before } : {} })),
-  send:    (id, body) => unwrap(api.post(`/chats/${id}/messages/send`, { body })),
+  send:    (id, payload) => {
+    // payload: string body OR { body, kind, media_ref }
+    const data = typeof payload === "string" ? { body: payload } : payload;
+    return unwrap(api.post(`/chats/${id}/messages/send`, data));
+  },
   read:    (id, up_to) => unwrap(api.post(`/chats/${id}/read`, { up_to })),
   delivered: (id, message_ids) => unwrap(api.post(`/chats/${id}/delivered`, { message_ids })),
   unreadSummary: () => unwrap(api.get("/chats/unread-summary")),
@@ -30,10 +40,17 @@ export const chatsService = {
 
 export const feedsService = {
   feed:     (kind = "post") => unwrap(api.get("/feeds/", { params: { kind } })),
+  explore:  (kind = "post") => unwrap(api.get("/feeds/explore", { params: { kind } })),
   stories:  () => unwrap(api.get("/feeds/stories")),
   create:   (payload) => unwrap(api.post("/feeds/posts", payload)),
+  detail:   (id) => unwrap(api.get(`/feeds/posts/${id}`)),
+  remove:   (id) => unwrap(api.delete(`/feeds/posts/${id}`)),
   like:     (id) => unwrap(api.post(`/feeds/posts/${id}/like`)),
+  save:     (id) => unwrap(api.post(`/feeds/posts/${id}/save`)),
   comments: (id, body) => unwrap(body ? api.post(`/feeds/posts/${id}/comments`, { body }) : api.get(`/feeds/posts/${id}/comments`)),
+  viewStory: (id) => unwrap(api.post(`/feeds/stories/${id}/view`)),
+  bookmarks: () => unwrap(api.get("/feeds/bookmarks")),
+  userPosts: (username, kind = "post") => unwrap(api.get(`/feeds/users/${username}/posts`, { params: { kind } })),
 };
 
 export const notificationsService = {
@@ -44,9 +61,14 @@ export const notificationsService = {
 };
 
 export const mediaService = {
-  upload: (file) => {
+  upload: (file, onProgress) => {
     const fd = new FormData();
     fd.append("file", file);
-    return unwrap(api.post("/media/upload", fd, { headers: { "Content-Type": "multipart/form-data" } }));
+    return unwrap(api.post("/media/upload", fd, {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (e) => {
+        if (onProgress && e.total) onProgress(Math.round((e.loaded * 100) / e.total));
+      },
+    }));
   },
 };

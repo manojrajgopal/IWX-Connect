@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { connectionsService } from "../services";
 import Avatar from "../components/ui/Avatar.jsx";
@@ -24,14 +24,15 @@ export default function Discover() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {results.map((u) => (
           <div key={u.public_id} className="card p-4 flex items-center gap-3">
-            <Avatar user={u} />
+            <Link to={`/u/${u.username}`}><Avatar user={u} /></Link>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{u.display_name || u.username}</div>
+              <Link to={`/u/${u.username}`} className="text-sm font-medium truncate block">{u.display_name || u.username}</Link>
               <div className="text-xs" style={{ color: "var(--text-muted)" }}>@{u.username}</div>
             </div>
             <RequestButton username={u.username} onSent={() => qc.invalidateQueries({ queryKey: ["pending"] })} />
           </div>
         ))}
+        {q.length < 2 && <div className="text-sm" style={{ color: "var(--text-muted)" }}>Type at least 2 characters to search.</div>}
       </div>
     </div>
   );

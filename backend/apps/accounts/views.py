@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate
 from rest_framework import permissions, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 
 from apps.core.exceptions import ok
@@ -11,7 +12,7 @@ from apps.security.services.audit import log_event
 from apps.security.services.ratelimit import enforce
 
 from .models import Profile, User, UserPreference
-from .serializers import LoginSerializer, MeSerializer, SignupSerializer, UserPreferenceSerializer
+from .serializers import LoginSerializer, MeSerializer, SignupSerializer, UserPreferenceSerializer, UserPublicSerializer
 
 
 @api_view(["POST"])
@@ -105,3 +106,49 @@ def preferences(request):
                 setattr(pref, field, request.data[field])
         pref.save()
     return ok(UserPreferenceSerializer(pref).data)
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser])
+def upload_photo(request):
+    """Upload avatar or cover photo. ?kind=avatar|cover"""
+    kind = request.GET.get("kind", "avatar")
+    if kind not in ("avatar", "cover"):
+        return Response({"ok": False, "error": {"code": "invalid", "message": "Bad kind"}}, status=400)
+    f = request.FILES.get("file")
+    if not f:
+        return Response({"ok": False, "error": {"code": "no_file", "message": "No file"}}, status=400)
+    if not f.content_type.startswith("image/"):
+        return Response({"ok": False, "error": {"code": "unsupported", "message": "Image required"}}, status=400)
+    if f.size > 8 * 1024 * 1024:
+        return Response({"ok": False, "error": {"code": "too_large", "message": "Max 8MB"}}, status=400)
+    profile = request.user.profile
+    setattr(profile, kind, f)
+    profile.save(update_fields=[kind, "updated_at"])
+    return ok(MeSerializer(request.user).data)
+
+
+@api_view(["GET"])
+def public_profile(request, username: str):
+    target = User.objects.select_related("profile").filter(username=normalize_username(username)).first()
+    if not target:
+        return Response({"ok": False, "error": {"code": "not_found", "message": "User not found"}}, status=404)
+    from apps.connections.models import Connection
+    from django.db.models import Q
+    is_self = target.id == request.user.id
+    connection = None
+    if not is_self:
+        connection = Connection.objects.filter(
+            Q(requester=request.user, receiver=target) | Q(requester=target, receiver=request.user)
+        ).first()
+    data = UserPublicSerializer(target).data
+    data["is_self"] = is_self
+    data["connection_status"] = connection.status if connection else None
+    data["counts"] = {
+        "posts": target.posts.filter(kind="post").count(),
+        "reels": target.posts.filter(kind="reel").count(),
+        "connections": Connection.objects.filter(status=Connection.ACCEPTED).filter(
+            Q(requester=target) | Q(receiver=target)
+        ).count(),
+    }
+    return ok(data)

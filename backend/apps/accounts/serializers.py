@@ -7,7 +7,7 @@ from .password_policy import PASSWORD_MIN_LENGTH, validate_strong_password
 class ProfilePublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ("avatar", "about", "location", "website", "is_private")
+        fields = ("avatar", "cover", "about", "location", "website", "is_private")
 
 
 class UserPublicSerializer(serializers.ModelSerializer):

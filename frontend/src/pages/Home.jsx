@@ -2,6 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { feedsService, connectionsService } from "../services";
 import Avatar from "../components/ui/Avatar.jsx";
+import PostCard from "../components/feed/PostCard.jsx";
+import ComposeFab from "../components/composer/ComposeFab.jsx";
+import { useUIStore } from "../stores/uiStore";
+import { useAuthStore } from "../stores/authStore";
 
 function HomeSkeleton() {
   return (
@@ -20,42 +24,41 @@ function HomeSkeleton() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-6">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="skel" style={{ borderRadius: "var(--border-radius)", overflow: "hidden" }}>
-              <div className="flex items-center gap-3 p-4">
-                <div className="skel shrink-0" style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--bg-surface-2)" }} />
-                <div className="flex-1">
-                  <div className="skel" style={{ height: 14, width: "40%", marginBottom: 6, background: "var(--bg-surface-2)" }} />
-                  <div className="skel" style={{ height: 10, width: "25%", background: "var(--bg-surface-2)" }} />
-                </div>
-              </div>
-              <div className="skel" style={{ height: 280, background: "var(--bg-surface-2)" }} />
-              <div className="p-4"><div className="skel" style={{ height: 12, width: "60%", background: "var(--bg-surface-2)" }} /></div>
-            </div>
+            <div key={i} className="skel" style={{ borderRadius: "var(--border-radius)", overflow: "hidden", height: 420 }} />
           ))}
         </div>
         <aside className="hidden lg:flex flex-col gap-3">
-          <div className="skel" style={{ borderRadius: "var(--border-radius)", padding: 16 }}>
-            <div className="skel" style={{ height: 12, width: 80, marginBottom: 12, background: "var(--bg-surface-2)" }} />
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 mb-3">
-                <div className="skel shrink-0" style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--bg-surface-2)" }} />
-                <div className="skel" style={{ height: 12, width: "70%", background: "var(--bg-surface-2)" }} />
-              </div>
-            ))}
-          </div>
+          <div className="skel" style={{ height: 280, borderRadius: "var(--border-radius)" }} />
         </aside>
       </div>
     </div>
   );
 }
 
+function groupStoriesByAuthor(list) {
+  const map = new Map();
+  for (const s of list) {
+    const key = s.author?.username || s.author?.public_id;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(s);
+  }
+  return Array.from(map.values());
+}
+
 export default function Home() {
   const stories = useQuery({ queryKey: ["stories"], queryFn: () => feedsService.stories() });
   const feed    = useQuery({ queryKey: ["feed"],    queryFn: () => feedsService.feed("post") });
   const friends = useQuery({ queryKey: ["friends"], queryFn: () => connectionsService.friends() });
+  const openComposer = useUIStore((s) => s.openComposer);
+  const openStories  = useUIStore((s) => s.openStoryViewer);
+  const me = useAuthStore((s) => s.user);
 
   const isLoading = stories.isLoading || feed.isLoading;
   const storiesList = Array.isArray(stories.data) ? stories.data : [];
+  const grouped = groupStoriesByAuthor(storiesList);
+  // Separate own stories so we can render a dedicated "Your story" tile.
+  const myGroup    = grouped.find((g) => g[0]?.author?.username === me?.username);
+  const otherGroups = grouped.filter((g) => g[0]?.author?.username !== me?.username);
   const feedList    = Array.isArray(feed.data)    ? feed.data    : [];
   const friendsList = Array.isArray(friends.data) ? friends.data : [];
 
@@ -66,43 +69,87 @@ export default function Home() {
       <section>
         <div className="eyebrow mb-3">Stories</div>
         <div className="flex gap-4 overflow-x-auto pb-2">
-          {storiesList.map((s) => (
-            <motion.div key={s.public_id} whileHover={{ scale: 1.04 }} className="flex flex-col items-center gap-2 shrink-0">
-              <div className="rounded-full p-[2px]" style={{ background: "linear-gradient(45deg, var(--accent), var(--text-muted))" }}>
-                <div className="rounded-full overflow-hidden" style={{ width: 64, height: 64, background: "var(--bg-card)" }}>
-                  <img src={s.thumbnail_url || s.media_url} alt="" className="w-full h-full object-cover" />
+          {/* Your story tile — shows ring + thumbnail when you have an active story */}
+          <div className="flex flex-col items-center gap-2 shrink-0">
+            <div className="relative">
+              {myGroup ? (
+                <button
+                  onClick={() => openStories(myGroup, 0)}
+                  className="rounded-full p-[2.5px]"
+                  style={{ background: "linear-gradient(45deg,#22c55e,#3b82f6)" }}
+                  title="View your story"
+                >
+                  <div className="rounded-full overflow-hidden flex items-center justify-center" style={{ width: 64, height: 64, background: "var(--bg-card)", padding: 2 }}>
+                    {me?.profile?.avatar
+                      ? <img src={me.profile.avatar} alt="" className="w-full h-full object-cover rounded-full" />
+                      : <div className="w-full h-full rounded-full flex items-center justify-center font-medium" style={{ background: "var(--bg-surface-2)" }}>
+                          {(me?.username || "?")[0].toUpperCase()}
+                        </div>}
+                  </div>
+                </button>
+              ) : (
+                <button
+                  onClick={() => openComposer("story")}
+                  className="rounded-full overflow-hidden flex items-center justify-center"
+                  style={{ width: 68, height: 68, background: "var(--bg-surface-2)", border: "2px dashed var(--border-color)" }}
+                  title="Add a story"
+                >
+                  {me?.profile?.avatar
+                    ? <img src={me.profile.avatar} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center font-medium" style={{ color: "var(--text-secondary)" }}>{(me?.username || "?")[0].toUpperCase()}</div>}
+                </button>
+              )}
+              {/* "+" badge always present so users can add another story */}
+              <button
+                onClick={() => openComposer("story")}
+                aria-label="Add to your story"
+                className="absolute -bottom-1 -right-1 rounded-full flex items-center justify-center"
+                style={{
+                  width: 22, height: 22,
+                  background: "var(--accent)", color: "var(--accent-inverse)",
+                  border: "2px solid var(--bg-page)", fontSize: 14, lineHeight: 1,
+                }}
+              >+</button>
+            </div>
+            <div className="text-xs font-medium">{myGroup ? "Your story" : "Add story"}</div>
+          </div>
+
+          {otherGroups.map((group, gi) => {
+            const author = group[0].author;
+            return (
+              <motion.button
+                key={author?.username || gi}
+                whileHover={{ scale: 1.04 }}
+                onClick={() => openStories(group, 0)}
+                className="flex flex-col items-center gap-2 shrink-0"
+              >
+                <div className="rounded-full p-[2.5px]" style={{ background: "linear-gradient(45deg,#f43f5e,#a855f7,#3b82f6)" }}>
+                  <div className="rounded-full overflow-hidden" style={{ width: 64, height: 64, background: "var(--bg-card)", padding: 2 }}>
+                    {author?.profile?.avatar
+                      ? <img src={author.profile.avatar} alt="" className="w-full h-full object-cover rounded-full" />
+                      : <div className="w-full h-full rounded-full flex items-center justify-center font-medium" style={{ background: "var(--bg-surface-2)" }}>
+                          {(author?.username || "?")[0].toUpperCase()}
+                        </div>}
+                  </div>
                 </div>
-              </div>
-              <div className="text-xs truncate max-w-[80px]">{s.author?.username}</div>
-            </motion.div>
-          ))}
-          {!storiesList.length && <div className="text-sm" style={{ color: "var(--text-muted)" }}>No active stories.</div>}
+                <div className="text-xs truncate max-w-[80px]">{author?.username}</div>
+              </motion.button>
+            );
+          })}
+          {!otherGroups.length && !myGroup && <div className="text-sm self-center" style={{ color: "var(--text-muted)" }}>No active stories from your connections.</div>}
         </div>
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 flex flex-col gap-6">
-          {feedList.map((p) => (
-            <motion.article key={p.public_id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card overflow-hidden">
-              <div className="flex items-center gap-3 p-4">
-                <Avatar user={p.author} />
-                <div>
-                  <div className="font-medium">{p.author?.display_name || p.author?.username}</div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>@{p.author?.username}</div>
-                </div>
-              </div>
-              {p.media_url && <img src={p.media_url} className="w-full max-h-[640px] object-cover" alt="" />}
-              {p.caption && <div className="p-4 text-sm">{p.caption}</div>}
-              <div className="flex items-center gap-4 px-4 pb-4 text-xs" style={{ color: "var(--text-muted)" }}>
-                <span>{p.likes_count} likes</span>
-                <span>{p.comments_count} comments</span>
-              </div>
-            </motion.article>
-          ))}
+          {feedList.map((p) => <PostCard key={p.public_id} post={p} />)}
           {!feedList.length && (
             <div className="card p-8 text-center">
               <h2 className="font-serif text-2xl mb-2">Your feed is quiet</h2>
               <p style={{ color: "var(--text-secondary)" }}>Connect with people to start seeing their posts here.</p>
+              <div className="mt-4">
+                <button className="btn-primary" onClick={() => openComposer("post")}>Create your first post</button>
+              </div>
             </div>
           )}
         </div>
@@ -125,6 +172,8 @@ export default function Home() {
           </div>
         </aside>
       </section>
+
+      <ComposeFab kind="post" />
     </div>
   );
 }

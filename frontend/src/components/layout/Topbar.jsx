@@ -1,8 +1,9 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { FiSearch, FiBell, FiMoon, FiSun, FiLogOut } from "react-icons/fi";
+import { FiSearch, FiBell, FiMoon, FiSun, FiLogOut, FiPlusSquare } from "react-icons/fi";
 import { useTheme } from "../../hooks/useTheme.jsx";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotificationStore } from "../../stores/notificationStore";
+import { useUIStore } from "../../stores/uiStore";
 import { authService } from "../../services";
 import Avatar from "../ui/Avatar.jsx";
 
@@ -11,6 +12,7 @@ export default function Topbar() {
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
   const unread = useNotificationStore((s) => s.unread);
+  const openComposer = useUIStore((s) => s.openComposer);
   const nav = useNavigate();
 
   const onLogout = async () => {
@@ -46,6 +48,7 @@ export default function Topbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <button className="btn-ghost relative" onClick={() => openComposer("post")} title="Create"><FiPlusSquare /></button>
         <button className="btn-ghost relative" onClick={toggle} title="Theme">
           {theme === "dark" ? <FiSun /> : <FiMoon />}
         </button>
@@ -58,7 +61,7 @@ export default function Topbar() {
             </span>
           )}
         </NavLink>
-        {user && <Avatar user={user} size={32} />}
+        {user && <Link to="/profile" aria-label="Profile"><Avatar user={user} size={32} /></Link>}
         <button className="btn-ghost" onClick={onLogout} title="Sign out"><FiLogOut /></button>
       </div>
     </header>

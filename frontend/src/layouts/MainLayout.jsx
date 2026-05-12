@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Topbar from "../components/layout/Topbar.jsx";
 import Sidebar from "../components/layout/Sidebar.jsx";
 import MobileNav from "../components/layout/MobileNav.jsx";
+import Composer from "../components/composer/Composer.jsx";
+import StoriesViewer from "../components/feed/StoriesViewer.jsx";
 import { useRealtime } from "../realtime/useRealtime.js";
 
 export default function MainLayout() {
@@ -28,6 +30,8 @@ export default function MainLayout() {
         </AnimatePresence>
       </div>
       <MobileNav />
+      <Composer />
+      <StoriesViewer />
     </div>
   );
 }

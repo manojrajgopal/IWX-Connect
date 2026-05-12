@@ -13,6 +13,7 @@ const Requests      = lazy(() => import("./pages/Requests.jsx"));
 const Discover      = lazy(() => import("./pages/Discover.jsx"));
 const Reels         = lazy(() => import("./pages/Reels.jsx"));
 const Profile       = lazy(() => import("./pages/Profile.jsx"));
+const UserProfile   = lazy(() => import("./pages/UserProfile.jsx"));
 const Settings      = lazy(() => import("./pages/Settings.jsx"));
 const Notifications = lazy(() => import("./pages/Notifications.jsx"));
 const Login         = lazy(() => import("./pages/auth/Login.jsx"));
@@ -68,6 +69,7 @@ export default function App() {
         <Route path="discover"     element={lazyRoute(Discover, "list")} />
         <Route path="reels"        element={lazyRoute(Reels, "reels")} />
         <Route path="profile"      element={lazyRoute(Profile, "form")} />
+        <Route path="u/:username"  element={lazyRoute(UserProfile, "form")} />
         <Route path="settings"     element={lazyRoute(Settings, "form")} />
         <Route path="notifications" element={lazyRoute(Notifications, "list")} />
       </Route>
