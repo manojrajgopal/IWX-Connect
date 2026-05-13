@@ -27,3 +27,8 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SAMESITE = "None"
+
+# Absolute MEDIA_URL so API responses point to the backend, not the frontend
+_backend_host = ALLOWED_HOSTS[0] if ALLOWED_HOSTS else ""
+if _backend_host:
+    MEDIA_URL = f"https://{_backend_host}/media/"

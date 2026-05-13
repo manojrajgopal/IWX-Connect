@@ -3,12 +3,14 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from apps.core.utils import RandomFileName
+
 
 class MediaAsset(models.Model):
     id = models.BigAutoField(primary_key=True)
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, db_index=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="media_assets")
-    file = models.FileField(upload_to="assets/%Y/%m/")
+    file = models.FileField(upload_to=RandomFileName("assets"))
     mime = models.CharField(max_length=100)
     size = models.BigIntegerField()
     width = models.IntegerField(default=0)

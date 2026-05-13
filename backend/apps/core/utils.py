@@ -1,10 +1,25 @@
 import hashlib
 import hmac
+import os
 import re
 import secrets
 import time
+import uuid
 
 USERNAME_RE = re.compile(r"^[a-z0-9_.]{3,24}$")
+
+
+class RandomFileName:
+    """Django-serializable upload_to callable that generates random hex filenames."""
+    def __init__(self, subdir):
+        self.subdir = subdir
+
+    def __call__(self, instance, filename):
+        ext = os.path.splitext(filename)[1].lower()
+        return f"{self.subdir}/{uuid.uuid4().hex}{ext}"
+
+    def deconstruct(self):
+        return (f"{self.__class__.__module__}.{self.__class__.__qualname__}", (self.subdir,), {})
 
 
 def normalize_username(value: str) -> str:

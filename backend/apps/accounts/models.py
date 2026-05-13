@@ -4,7 +4,7 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 
-from apps.core.utils import normalize_username
+from apps.core.utils import normalize_username, RandomFileName
 
 
 class UserManager(BaseUserManager):
@@ -51,8 +51,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    avatar = models.ImageField(upload_to="avatars/", null=True, blank=True)
-    cover = models.ImageField(upload_to="covers/", null=True, blank=True)
+    avatar = models.ImageField(upload_to=RandomFileName("avatars"), null=True, blank=True)
+    cover = models.ImageField(upload_to=RandomFileName("covers"), null=True, blank=True)
     about = models.TextField(blank=True, default="")
     location = models.CharField(max_length=120, blank=True, default="")
     website = models.URLField(blank=True, default="")
