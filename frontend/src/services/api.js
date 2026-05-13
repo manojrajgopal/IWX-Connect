@@ -1,8 +1,10 @@
 import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
 
+const backendUrl = import.meta.env.VITE_API_URL || "";
+
 export const api = axios.create({
-  baseURL: "/api",
+  baseURL: `${backendUrl}/api`,
   withCredentials: true,
 });
 

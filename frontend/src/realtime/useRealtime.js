@@ -56,8 +56,15 @@ export function useRealtime() {
 
     const timerId = setTimeout(() => {
       if (cancelled) return;
-      const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${proto}://${window.location.host}/ws/hub?access=${encodeURIComponent(access)}`;
+      const backendUrl = import.meta.env.VITE_API_URL || "";
+      let wsBase;
+      if (backendUrl) {
+        wsBase = backendUrl.replace(/^http/, "ws");
+      } else {
+        const proto = window.location.protocol === "https:" ? "wss" : "ws";
+        wsBase = `${proto}://${window.location.host}`;
+      }
+      const url = `${wsBase}/ws/hub?access=${encodeURIComponent(access)}`;
       sock = new WebSocket(url);
       sockRef.current = sock;
       window.__iwxSocket = sock;
