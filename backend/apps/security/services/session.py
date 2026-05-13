@@ -50,7 +50,7 @@ def attach_session_cookie(response, sess: Session):
         max_age=settings.SESSION_TTL_DAYS * 86400,
         httponly=True,
         secure=settings.SESSION_COOKIE_SECURE,
-        samesite="Lax",
+        samesite=settings.SESSION_COOKIE_SAMESITE,
         path="/",
     )
 
