@@ -13,6 +13,13 @@ export const authService = {
     return unwrap(api.post(`/auth/me/photo?kind=${kind}`, fd, { headers: { "Content-Type": "multipart/form-data" } }));
   },
   publicProfile: (username) => unwrap(api.get(`/auth/users/${username}`)),
+  changePassword: (payload) => unwrap(api.post("/auth/me/password", payload)),
+};
+
+export const securityService = {
+  sessions: () => unwrap(api.get("/security/sessions")),
+  revokeSession: (id) => unwrap(api.post(`/security/sessions/${id}/revoke`)),
+  devices: () => unwrap(api.get("/security/devices")),
 };
 
 export const connectionsService = {
@@ -45,6 +52,7 @@ export const feedsService = {
   create:   (payload) => unwrap(api.post("/feeds/posts", payload)),
   detail:   (id) => unwrap(api.get(`/feeds/posts/${id}`)),
   remove:   (id) => unwrap(api.delete(`/feeds/posts/${id}`)),
+  update:   (id, payload) => unwrap(api.patch(`/feeds/posts/${id}`, payload)),
   like:     (id) => unwrap(api.post(`/feeds/posts/${id}/like`)),
   save:     (id) => unwrap(api.post(`/feeds/posts/${id}/save`)),
   comments: (id, body) => unwrap(body ? api.post(`/feeds/posts/${id}/comments`, { body }) : api.get(`/feeds/posts/${id}/comments`)),

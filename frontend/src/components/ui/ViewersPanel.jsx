@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiX, FiEye, FiClock } from "react-icons/fi";
+import { FiX, FiEye, FiClock, FiLoader } from "react-icons/fi";
+import { chatsService } from "../../services";
 import Avatar from "./Avatar.jsx";
 
 function formatViewTime(iso) {
@@ -29,7 +32,24 @@ function formatViewTime(iso) {
 /**
  * @param {{ open: boolean, onClose: () => void, viewers: Array, loading: boolean, title?: string, timeKey?: string }} props
  */
-export default function ViewersPanel({ open, onClose, viewers = [], loading, title = "Viewed by", timeKey = "viewed_at" }) {
+export default function ViewersPanel({ open, onClose, onNavigate, viewers = [], loading, title = "Viewed by", timeKey = "viewed_at" }) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [chatLoading, setChatLoading] = useState(null);
+
+  const openChat = async (username) => {
+    setChatLoading(username);
+    try {
+      const conv = await chatsService.open(username);
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      onClose();
+      if (onNavigate) onNavigate();
+      navigate("/chats", { state: { openConversation: conv?.public_id } });
+    } finally {
+      setChatLoading(null);
+    }
+  };
+
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -109,32 +129,41 @@ export default function ViewersPanel({ open, onClose, viewers = [], loading, tit
 
               {!loading && viewers.length > 0 && (
                 <div className="flex flex-col">
-                  {viewers.map((v, i) => (
-                    <motion.div
-                      key={v.username}
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="flex items-center gap-3 px-5 py-3 transition-colors"
-                      style={{ borderBottom: i < viewers.length - 1 ? "1px solid var(--border-color)" : "none" }}
-                    >
-                      <Avatar user={v} size={40} />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">
-                          {v.display_name || v.username}
+                  {viewers.map((v, i) => {
+                    const avatarUser = { ...v, profile: { avatar: v.avatar } };
+                    return (
+                      <motion.button
+                        key={v.username}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-center gap-3 px-5 py-3 transition-colors text-left hover:opacity-80"
+                        style={{
+                          borderBottom: i < viewers.length - 1 ? "1px solid var(--border-color)" : "none",
+                          opacity: chatLoading && chatLoading !== v.username ? 0.4 : 1,
+                        }}
+                        onClick={() => openChat(v.username)}
+                        disabled={!!chatLoading}
+                      >
+                        <Avatar user={avatarUser} size={40} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate">
+                            {v.display_name || v.username}
+                          </div>
+                          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                            @{v.username}
+                          </div>
                         </div>
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                          @{v.username}
-                        </div>
-                      </div>
-                      {v[timeKey] && (
+                        {chatLoading === v.username ? (
+                          <FiLoader size={16} className="animate-spin shrink-0" style={{ color: "var(--accent)" }} />
+                        ) : v[timeKey] ? (
                         <div className="flex items-center gap-1.5 text-[11px] shrink-0" style={{ color: "var(--text-muted)" }}>
                           <FiClock size={11} />
                           <span>{formatViewTime(v[timeKey])}</span>
                         </div>
-                      )}
-                    </motion.div>
-                  ))}
+                        ) : null}
+                    </motion.button>
+                  ); })}
                 </div>
               )}
             </div>

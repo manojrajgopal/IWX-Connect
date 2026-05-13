@@ -81,7 +81,17 @@ def refresh(request):
 
 @api_view(["GET"])
 def me(request):
-    return ok(MeSerializer(request.user).data)
+    data = MeSerializer(request.user).data
+    from apps.connections.models import Connection
+    from django.db.models import Q
+    data["counts"] = {
+        "posts": request.user.posts.filter(kind="post").count(),
+        "reels": request.user.posts.filter(kind="reel").count(),
+        "connections": Connection.objects.filter(status=Connection.ACCEPTED).filter(
+            Q(requester=request.user) | Q(receiver=request.user)
+        ).count(),
+    }
+    return ok(data)
 
 
 @api_view(["PATCH"])
@@ -106,6 +116,22 @@ def preferences(request):
                 setattr(pref, field, request.data[field])
         pref.save()
     return ok(UserPreferenceSerializer(pref).data)
+
+
+@api_view(["POST"])
+def change_password(request):
+    current = request.data.get("current_password", "")
+    new_pw = request.data.get("new_password", "")
+    confirm = request.data.get("confirm_password", "")
+    if not request.user.check_password(current):
+        return Response({"ok": False, "error": {"code": "wrong_password", "message": "Current password is incorrect"}}, status=400)
+    if new_pw != confirm:
+        return Response({"ok": False, "error": {"code": "mismatch", "message": "Passwords do not match"}}, status=400)
+    if len(new_pw) < 8:
+        return Response({"ok": False, "error": {"code": "too_short", "message": "Password must be at least 8 characters"}}, status=400)
+    request.user.set_password(new_pw)
+    request.user.save(update_fields=["password"])
+    return ok({"changed": True})
 
 
 @api_view(["POST"])

@@ -11,6 +11,7 @@ import { authService } from "./services";
 const Home          = lazy(() => import("./pages/Home.jsx"));
 const Chats         = lazy(() => import("./pages/Chats.jsx"));
 const Requests      = lazy(() => import("./pages/Requests.jsx"));
+const Connections   = lazy(() => import("./pages/Connections.jsx"));
 const Discover      = lazy(() => import("./pages/Discover.jsx"));
 const Reels         = lazy(() => import("./pages/Reels.jsx"));
 const Profile       = lazy(() => import("./pages/Profile.jsx"));
@@ -69,6 +70,7 @@ export default function App() {
         <Route index               element={lazyRoute(Home, "feed")} />
         <Route path="chats"        element={lazyRoute(Chats, "chat")} />
         <Route path="requests"     element={lazyRoute(Requests, "requests")} />
+        <Route path="connections"  element={lazyRoute(Connections, "list")} />
         <Route path="discover"     element={lazyRoute(Discover, "list")} />
         <Route path="reels"        element={lazyRoute(Reels, "reels")} />
         <Route path="profile"      element={lazyRoute(Profile, "form")} />

@@ -13,6 +13,19 @@ const STORY_DURATION_MS = 5000;
 
 function isVideo(u = "") { return /\.(mp4|webm|mov|m4v)(\?|$)/i.test(u); }
 
+function storyTimeLabel(story) {
+  if (!story?.created_at) return "";
+  const created = new Date(story.created_at);
+  const now = new Date();
+  const diffMs = now - created;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  return created.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function StoriesViewer() {
   const { open, stories, index } = useUIStore((s) => s.storyViewer);
   const close = useUIStore((s) => s.closeStoryViewer);
@@ -182,8 +195,9 @@ export default function StoriesViewer() {
           {/* Header */}
           <div className="absolute top-6 inset-x-3 flex items-center gap-3 z-20 pt-2">
             <Avatar user={current.author} size={32} />
-            <div className="flex-1 text-white text-sm font-medium" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
-              @{current.author?.username}
+            <div className="flex-1 min-w-0" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+              <div className="text-white text-sm font-medium truncate">@{current.author?.username}</div>
+              <div className="text-[11px] text-white/60">{storyTimeLabel(current)}</div>
             </div>
             {isMine && (
               <div className="relative">
@@ -260,6 +274,7 @@ export default function StoriesViewer() {
     <ViewersPanel
       open={showViewers}
       onClose={closeViewers}
+      onNavigate={close}
       viewers={viewers}
       loading={viewersLoading}
       title="Seen by"

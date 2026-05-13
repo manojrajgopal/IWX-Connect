@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Count, F, Q
+from django.db.models import Count, Exists, F, OuterRef, Q
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -54,8 +54,12 @@ def feed(request):
     kind = request.GET.get("kind", Post.POST)
     ids = _connected_user_ids(request.user)
     qs = (
-        Post.objects.filter(author_id__in=ids, kind=kind)
+        Post.objects.filter(
+            Q(author_id__in=ids) | Q(visibility="all"),
+            kind=kind,
+        )
         .select_related("author__profile")
+        .distinct()
         .order_by("-created_at")[:30]
     )
     return ok(PostSerializer(qs, many=True, context=_ctx(request)).data)
@@ -76,6 +80,8 @@ def explore(request):
 
 @api_view(["GET"])
 def stories(request):
+    # Clean up expired stories on read
+    Post.objects.filter(kind=Post.STORY, expires_at__lte=timezone.now()).delete()
     ids = _connected_user_ids(request.user)
     qs = (
         Post.objects.filter(
@@ -84,7 +90,12 @@ def stories(request):
             expires_at__gt=timezone.now(),
         )
         .select_related("author__profile")
-        .annotate(views_count=Count("views", filter=~Q(views__user=F("author"))))
+        .annotate(
+            views_count=Count("views", filter=~Q(views__user=F("author"))),
+            viewed=Exists(
+                StoryView.objects.filter(post=OuterRef("pk"), user=request.user)
+            ),
+        )
         .order_by("author_id", "-created_at")
     )
     return ok(PostSerializer(qs, many=True, context=_ctx(request)).data)
@@ -105,17 +116,35 @@ def create_post(request):
         thumbnail_url=data.get("thumbnail_url", ""),
         duration_ms=int(data.get("duration_ms") or 0),
         visibility=data.get("visibility", "connections"),
+        hide_likes=bool(data.get("hide_likes", False)),
+        hide_comments=bool(data.get("hide_comments", False)),
+        allow_comments=bool(data.get("allow_comments", True)),
+        allow_sharing=bool(data.get("allow_sharing", True)),
         expires_at=expires_at,
     )
     _broadcast_new_post(post)
     return ok(PostSerializer(post, context=_ctx(request)).data, status_code=201)
 
 
-@api_view(["GET", "DELETE"])
+@api_view(["GET", "DELETE", "PATCH"])
 def post_detail(request, public_id: str):
     post = Post.objects.select_related("author__profile").filter(public_id=public_id).first()
     if not post:
         return Response({"ok": False, "error": {"code": "not_found", "message": "Not found"}}, status=404)
+    if request.method == "PATCH":
+        if post.author_id != request.user.id:
+            return Response({"ok": False, "error": {"code": "forbidden", "message": "Not your post"}}, status=403)
+        editable = ("caption", "visibility", "hide_likes", "hide_comments", "allow_comments", "allow_sharing")
+        data = request.data
+        for field in editable:
+            if field in data:
+                val = data[field]
+                if field == "caption":
+                    val = (val or "")[:2200]
+                setattr(post, field, val)
+        post.save()
+        _broadcast_post_update(post, {f: getattr(post, f) for f in editable})
+        return ok(PostSerializer(post, context=_ctx(request)).data)
     if request.method == "DELETE":
         if post.author_id != request.user.id:
             return Response({"ok": False, "error": {"code": "forbidden", "message": "Not your post"}}, status=403)

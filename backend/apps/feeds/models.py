@@ -17,6 +17,10 @@ class Post(TimestampedModel):
     thumbnail_url = models.CharField(max_length=300, blank=True, default="")
     duration_ms = models.IntegerField(default=0)
     visibility = models.CharField(max_length=12, default="connections")
+    hide_likes = models.BooleanField(default=False)
+    hide_comments = models.BooleanField(default=False)
+    allow_comments = models.BooleanField(default=True)
+    allow_sharing = models.BooleanField(default=True)
     expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:

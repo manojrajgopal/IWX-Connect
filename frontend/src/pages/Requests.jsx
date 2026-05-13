@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { connectionsService, chatsService } from "../services";
+import { connectionsService } from "../services";
 import Avatar from "../components/ui/Avatar.jsx";
 import RequestButton from "../components/ui/RequestButton.jsx";
 
@@ -26,19 +26,6 @@ export default function Requests() {
     await connectionsService.respond(id, action);
     qc.invalidateQueries({ queryKey: ["pending"] });
     qc.invalidateQueries({ queryKey: ["friends"] });
-  };
-
-  const [chatLoading, setChatLoading] = useState(null);
-
-  const openChat = async (username) => {
-    setChatLoading(username);
-    try {
-      const conv = await chatsService.open(username);
-      qc.invalidateQueries({ queryKey: ["conversations"] });
-      navigate("/chats", { state: { openConversation: conv?.public_id } });
-    } finally {
-      setChatLoading(null);
-    }
   };
 
   const pendingList = Array.isArray(pending.data) ? pending.data : [];
@@ -93,23 +80,12 @@ export default function Requests() {
         </div>
       </section>
 
-      <section className="card p-5 lg:col-span-2">
-        <h2 className="font-serif text-2xl mb-4">Your connections</h2>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {friendsList.map((u) => (
-            <div key={u.public_id} className="flex items-center gap-3 p-2 rounded-md surface">
-              <Avatar user={u} />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">{u.display_name || u.username}</div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>@{u.username}</div>
-              </div>
-              <button className="btn" onClick={() => openChat(u.username)} disabled={chatLoading === u.username}>
-                {chatLoading === u.username ? "Opening…" : "Chat"}
-              </button>
-            </div>
-          ))}
-          {!friendsList.length && <div className="text-sm" style={{ color: "var(--text-muted)" }}>You haven’t connected with anyone yet.</div>}
+      <section className="card p-5 lg:col-span-2 flex items-center justify-between">
+        <div>
+          <h2 className="font-serif text-xl">Your connections</h2>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{friendsList.length} connection{friendsList.length !== 1 ? "s" : ""}</p>
         </div>
+        <button className="btn-primary" onClick={() => navigate("/connections")}>View all</button>
       </section>
     </div>
   );

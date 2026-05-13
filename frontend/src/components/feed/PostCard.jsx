@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiHeart, FiMessageCircle, FiBookmark, FiSend, FiMoreHorizontal, FiTrash2, FiEye } from "react-icons/fi";
+import { FiHeart, FiMessageCircle, FiBookmark, FiSend, FiMoreHorizontal, FiTrash2, FiEye, FiSettings, FiX, FiChevronDown, FiUsers, FiGlobe, FiStar, FiCheck } from "react-icons/fi";
 import { feedsService } from "../../services";
 import Avatar from "../ui/Avatar.jsx";
 import ViewersPanel from "../ui/ViewersPanel.jsx";
@@ -56,6 +56,16 @@ export default function PostCard({ post, onDeleted }) {
   const [showViewers, setShowViewers] = useState(false);
   const [viewers, setViewers] = useState([]);
   const [viewersLoading, setViewersLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState({
+    caption: post.caption || "",
+    visibility: post.visibility || "connections",
+    hide_likes: !!post.hide_likes,
+    hide_comments: !!post.hide_comments,
+    allow_comments: post.allow_comments !== false,
+    allow_sharing: post.allow_sharing !== false,
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // Separate effects so a WS patch to likes_count doesn't reset liked/saved.
   useEffect(() => { setLiked(!!post.liked); }, [post.public_id, post.liked]);
@@ -167,6 +177,16 @@ export default function PostCard({ post, onDeleted }) {
     }
   };
 
+  const saveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      const updated = await feedsService.update(post.public_id, settings);
+      patchPostInCache(qc, post.public_id, settings);
+      setShowSettings(false);
+    } catch { /* ignore */ }
+    finally { setSavingSettings(false); }
+  };
+
   const media = post.media_url;
   const video = isVideoUrl(media);
 
@@ -199,6 +219,13 @@ export default function PostCard({ post, onDeleted }) {
                       style={{ color: "var(--text-primary)" }}
                     >
                       <FiEye size={15} /> Liked by
+                    </button>
+                    <button
+                      onClick={() => { setShowMenu(false); setShowSettings(true); }}
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:opacity-80"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      <FiSettings size={15} /> Edit settings
                     </button>
                     <button
                       onClick={() => { setShowMenu(false); onDelete(); }}
@@ -302,6 +329,144 @@ export default function PostCard({ post, onDeleted }) {
         title="Liked by"
         timeKey="liked_at"
       />
+
+      {/* Post settings editor panel */}
+      <AnimatePresence>
+        {showSettings && (
+          <PostSettingsPanel
+            settings={settings}
+            setSettings={setSettings}
+            saving={savingSettings}
+            onSave={saveSettings}
+            onClose={() => setShowSettings(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.article>
+  );
+}
+
+/* ── Toggle ── */
+function SettingsToggle({ checked, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className="relative w-9 h-5 rounded-full transition-colors shrink-0"
+      style={{ background: checked ? "var(--accent)" : "var(--bg-surface-2)", border: "1px solid var(--border-color)" }}
+    >
+      <motion.span
+        className="absolute top-[2px] w-3.5 h-3.5 rounded-full bg-white shadow"
+        animate={{ left: checked ? 18 : 2 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+      />
+    </button>
+  );
+}
+
+/* ── Visibility selector for settings panel ── */
+const VISIBILITY = [
+  { value: "all", label: "Everyone", icon: FiGlobe },
+  { value: "connections", label: "Connections", icon: FiUsers },
+  { value: "close_friends", label: "Close friends", icon: FiStar },
+];
+
+function VisibilityPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const current = VISIBILITY.find((v) => v.value === value) || VISIBILITY[1];
+  const Icon = current.icon;
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm w-full"
+        style={{ background: "var(--bg-surface-2)", border: "1px solid var(--border-color)" }}>
+        <Icon size={14} style={{ color: "var(--accent)" }} />
+        <span className="flex-1 text-left">{current.label}</span>
+        <FiChevronDown size={13} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+            className="absolute left-0 right-0 mt-1 rounded-lg overflow-hidden z-10 shadow-lg"
+            style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
+            {VISIBILITY.map((v) => {
+              const VIcon = v.icon;
+              return (
+                <button key={v.value} type="button"
+                  onClick={() => { onChange(v.value); setOpen(false); }}
+                  className="flex items-center gap-2 px-3 py-2 w-full text-left text-sm hover:opacity-80"
+                  style={{ background: value === v.value ? "var(--bg-surface-2)" : "transparent" }}>
+                  <VIcon size={14} style={{ color: "var(--accent)" }} />
+                  <span className="flex-1">{v.label}</span>
+                  {value === v.value && <FiCheck size={13} style={{ color: "var(--accent)" }} />}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ── Post Settings Panel ── */
+function PostSettingsPanel({ settings, setSettings, saving, onSave, onClose }) {
+  const upd = (patch) => setSettings((s) => ({ ...s, ...patch }));
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: "auto", opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      className="border-t overflow-hidden"
+      style={{ borderColor: "var(--border-color)" }}
+    >
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm font-semibold">Post settings</span>
+          <button onClick={onClose} className="p-1 rounded-full hover:opacity-70"><FiX size={16} /></button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="text-xs font-medium mb-1 block" style={{ color: "var(--text-muted)" }}>Visibility</label>
+            <VisibilityPicker value={settings.visibility} onChange={(v) => upd({ visibility: v })} />
+          </div>
+          <textarea
+            className="input text-sm"
+            rows={2}
+            placeholder="Caption..."
+            value={settings.caption}
+            maxLength={2200}
+            onChange={(e) => upd({ caption: e.target.value })}
+            style={{ resize: "none" }}
+          />
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Hide like count</span>
+              <SettingsToggle checked={settings.hide_likes} onChange={(v) => upd({ hide_likes: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Hide comments</span>
+              <SettingsToggle checked={settings.hide_comments} onChange={(v) => upd({ hide_comments: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Allow comments</span>
+              <SettingsToggle checked={settings.allow_comments} onChange={(v) => upd({ allow_comments: v })} />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs">Allow sharing</span>
+              <SettingsToggle checked={settings.allow_sharing} onChange={(v) => upd({ allow_sharing: v })} />
+            </div>
+          </div>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="w-full py-2 rounded-lg text-sm font-semibold transition-all"
+            style={{ background: "var(--accent)", color: "#fff", opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 }

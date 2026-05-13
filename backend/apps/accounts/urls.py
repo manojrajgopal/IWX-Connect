@@ -10,6 +10,7 @@ urlpatterns = [
     path("me", views.me),
     path("me/profile", views.update_profile),
     path("me/preferences", views.preferences),
+    path("me/password", views.change_password),
     path("me/photo", views.upload_photo),
     path("users/<str:username>", views.public_profile),
 ]

@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { feedsService, connectionsService } from "../services";
 import Avatar from "../components/ui/Avatar.jsx";
 import PostCard from "../components/feed/PostCard.jsx";
-import ComposeFab from "../components/composer/ComposeFab.jsx";
 import { useUIStore } from "../stores/uiStore";
 import { useAuthStore } from "../stores/authStore";
 
@@ -56,9 +55,15 @@ export default function Home() {
   const isLoading = stories.isLoading || feed.isLoading;
   const storiesList = Array.isArray(stories.data) ? stories.data : [];
   const grouped = groupStoriesByAuthor(storiesList);
-  // Separate own stories so we can render a dedicated "Your story" tile.
   const myGroup    = grouped.find((g) => g[0]?.author?.username === me?.username);
   const otherGroups = grouped.filter((g) => g[0]?.author?.username !== me?.username);
+  // Sort: groups with any unseen story first, fully-seen groups last
+  otherGroups.sort((a, b) => {
+    const aUnseen = a.some((s) => !s.viewed);
+    const bUnseen = b.some((s) => !s.viewed);
+    if (aUnseen === bUnseen) return 0;
+    return aUnseen ? -1 : 1;
+  });
   const feedList    = Array.isArray(feed.data)    ? feed.data    : [];
   const friendsList = Array.isArray(friends.data) ? friends.data : [];
 
@@ -89,7 +94,7 @@ export default function Home() {
                 </button>
               ) : (
                 <button
-                  onClick={() => openComposer("story")}
+                  onClick={() => openComposer("story", true)}
                   className="rounded-full overflow-hidden flex items-center justify-center"
                   style={{ width: 68, height: 68, background: "var(--bg-surface-2)", border: "2px dashed var(--border-color)" }}
                   title="Add a story"
@@ -101,7 +106,7 @@ export default function Home() {
               )}
               {/* "+" badge always present so users can add another story */}
               <button
-                onClick={() => openComposer("story")}
+                onClick={() => openComposer("story", true)}
                 aria-label="Add to your story"
                 className="absolute -bottom-1 -right-1 rounded-full flex items-center justify-center"
                 style={{
@@ -116,6 +121,7 @@ export default function Home() {
 
           {otherGroups.map((group, gi) => {
             const author = group[0].author;
+            const hasUnseen = group.some((s) => !s.viewed);
             return (
               <motion.button
                 key={author?.username || gi}
@@ -123,7 +129,14 @@ export default function Home() {
                 onClick={() => openStories(group, 0)}
                 className="flex flex-col items-center gap-2 shrink-0"
               >
-                <div className="rounded-full p-[2.5px]" style={{ background: "linear-gradient(45deg,#f43f5e,#a855f7,#3b82f6)" }}>
+                <div
+                  className="rounded-full p-[2.5px]"
+                  style={{
+                    background: hasUnseen
+                      ? "linear-gradient(45deg,#f43f5e,#a855f7,#3b82f6)"
+                      : "var(--border-color)",
+                  }}
+                >
                   <div className="rounded-full overflow-hidden" style={{ width: 64, height: 64, background: "var(--bg-card)", padding: 2 }}>
                     {author?.profile?.avatar
                       ? <img src={author.profile.avatar} alt="" className="w-full h-full object-cover rounded-full" />
@@ -132,7 +145,7 @@ export default function Home() {
                         </div>}
                   </div>
                 </div>
-                <div className="text-xs truncate max-w-[80px]">{author?.username}</div>
+                <div className="text-xs truncate max-w-[80px]" style={{ color: hasUnseen ? "var(--text-primary)" : "var(--text-muted)" }}>{author?.username}</div>
               </motion.button>
             );
           })}
@@ -172,8 +185,6 @@ export default function Home() {
           </div>
         </aside>
       </section>
-
-      <ComposeFab kind="post" />
     </div>
   );
 }

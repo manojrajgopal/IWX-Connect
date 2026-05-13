@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { FiHeart, FiMessageCircle, FiSend, FiVolume2, FiVolumeX, FiTrash2, FiEye } from "react-icons/fi";
+import { FiHeart, FiMessageCircle, FiSend, FiVolume2, FiVolumeX, FiTrash2, FiEye, FiPlus } from "react-icons/fi";
 import { feedsService } from "../services";
 import { useAuthStore } from "../stores/authStore";
 import { useAlertStore } from "../stores/alertStore";
-import ComposeFab from "../components/composer/ComposeFab.jsx";
+import { useUIStore } from "../stores/uiStore";
 import ViewersPanel from "../components/ui/ViewersPanel.jsx";
 
 function ReelItem({ post, onDeleted }) {
@@ -139,6 +139,7 @@ function ReelItem({ post, onDeleted }) {
 export default function Reels() {
   const { data, isLoading } = useQuery({ queryKey: ["reels"], queryFn: () => feedsService.feed("reel") });
   const qc = useQueryClient();
+  const openComposer = useUIStore((s) => s.openComposer);
 
   const handleDeleted = (publicId) => {
     // Remove from local cache immediately
@@ -171,11 +172,12 @@ export default function Reels() {
         <div className="h-full flex items-center justify-center text-center px-6" style={{ color: "var(--text-muted)" }}>
           <div>
             <p className="mb-3">No reels yet.</p>
-            <p className="text-sm">Tap the + button to share the first reel.</p>
+            <button onClick={() => openComposer("reel", true)} className="btn-primary text-sm px-5 py-2 rounded-xl">
+              <FiPlus size={16} className="inline mr-1.5" />Upload a reel
+            </button>
           </div>
         </div>
       )}
-      <ComposeFab kind="reel" />
     </div>
   );
 }

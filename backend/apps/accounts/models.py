@@ -69,8 +69,16 @@ class UserPreference(models.Model):
     notifications_in_app = models.BooleanField(default=True)
     notifications_push = models.BooleanField(default=True)
     notifications_email = models.BooleanField(default=False)
+    notification_sounds = models.BooleanField(default=True)
     show_presence = models.BooleanField(default=True)
     read_receipts = models.BooleanField(default=True)
+    public_profile = models.BooleanField(default=False)
+    show_activity = models.BooleanField(default=True)
+    message_sounds = models.BooleanField(default=True)
+    auto_download_media = models.BooleanField(default=True)
+    link_previews = models.BooleanField(default=True)
+    autoplay_videos = models.BooleanField(default=True)
+    data_saver = models.BooleanField(default=False)
     language = models.CharField(max_length=8, default="en")
 
     class Meta:
