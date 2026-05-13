@@ -9,6 +9,7 @@ class PostSerializer(serializers.ModelSerializer):
     author = UserPublicSerializer(read_only=True)
     likes_count = serializers.IntegerField(read_only=True, source="likes.count")
     comments_count = serializers.IntegerField(read_only=True, source="comments.count")
+    views_count = serializers.IntegerField(read_only=True, default=0)
     liked = serializers.SerializerMethodField()
     saved = serializers.SerializerMethodField()
 
@@ -17,7 +18,7 @@ class PostSerializer(serializers.ModelSerializer):
         fields = (
             "public_id", "kind", "caption", "media_url", "thumbnail_url", "duration_ms",
             "visibility", "expires_at", "author", "likes_count", "comments_count",
-            "liked", "saved", "created_at",
+            "views_count", "liked", "saved", "created_at",
         )
 
     def _user(self):

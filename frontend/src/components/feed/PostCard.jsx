@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiHeart, FiMessageCircle, FiBookmark, FiSend, FiMoreHorizontal, FiTrash2 } from "react-icons/fi";
+import { FiHeart, FiMessageCircle, FiBookmark, FiSend, FiMoreHorizontal, FiTrash2, FiEye } from "react-icons/fi";
 import { feedsService } from "../../services";
 import Avatar from "../ui/Avatar.jsx";
+import ViewersPanel from "../ui/ViewersPanel.jsx";
 import { useAuthStore } from "../../stores/authStore";
+import { useAlertStore } from "../../stores/alertStore";
 
 function timeAgo(iso) {
   if (!iso) return "";
@@ -39,6 +41,7 @@ export default function PostCard({ post, onDeleted }) {
   const qc = useQueryClient();
   const me = useAuthStore((s) => s.user);
   const isMine = me?.username === post.author?.username;
+  const showConfirm = useAlertStore((s) => s.showConfirm);
 
   const [liked, setLiked] = useState(!!post.liked);
   const [likes, setLikes] = useState(post.likes_count || 0);
@@ -50,6 +53,9 @@ export default function PostCard({ post, onDeleted }) {
   const [posting, setPosting] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showViewers, setShowViewers] = useState(false);
+  const [viewers, setViewers] = useState([]);
+  const [viewersLoading, setViewersLoading] = useState(false);
 
   // Separate effects so a WS patch to likes_count doesn't reset liked/saved.
   useEffect(() => { setLiked(!!post.liked); }, [post.public_id, post.liked]);
@@ -129,7 +135,8 @@ export default function PostCard({ post, onDeleted }) {
   };
 
   const onDelete = async () => {
-    if (!window.confirm("Delete this post permanently?")) return;
+    const ok = await showConfirm("This post will be permanently deleted. This action cannot be undone.", { title: "Delete post?", confirmText: "Delete", variant: "danger" });
+    if (!ok) return;
     setDeleting(true);
     try {
       await feedsService.remove(post.public_id);
@@ -143,6 +150,20 @@ export default function PostCard({ post, onDeleted }) {
       onDeleted?.();
     } catch {
       setDeleting(false);
+    }
+  };
+
+  const openPostViewers = async () => {
+    setShowMenu(false);
+    setShowViewers(true);
+    setViewersLoading(true);
+    try {
+      const res = await feedsService.postViewers(post.public_id);
+      setViewers(res.viewers || []);
+    } catch {
+      setViewers([]);
+    } finally {
+      setViewersLoading(false);
     }
   };
 
@@ -171,14 +192,23 @@ export default function PostCard({ post, onDeleted }) {
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 top-full mt-1 z-20 rounded-lg shadow-lg py-1 min-w-[140px]" style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
                 {isMine && (
-                  <button
-                    onClick={() => { setShowMenu(false); onDelete(); }}
-                    disabled={deleting}
-                    className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:opacity-80"
-                    style={{ color: "#ef4444" }}
-                  >
-                    <FiTrash2 size={15} /> {deleting ? "Deleting…" : "Delete post"}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => openPostViewers()}
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:opacity-80"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      <FiEye size={15} /> Liked by
+                    </button>
+                    <button
+                      onClick={() => { setShowMenu(false); onDelete(); }}
+                      disabled={deleting}
+                      className="flex items-center gap-2 w-full px-4 py-2 text-sm hover:opacity-80"
+                      style={{ color: "#ef4444" }}
+                    >
+                      <FiTrash2 size={15} /> {deleting ? "Deleting…" : "Delete post"}
+                    </button>
+                  </>
                 )}
                 {!isMine && (
                   <div className="px-4 py-2 text-xs" style={{ color: "var(--text-muted)" }}>No actions</div>
@@ -263,6 +293,15 @@ export default function PostCard({ post, onDeleted }) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ViewersPanel
+        open={showViewers}
+        onClose={() => setShowViewers(false)}
+        viewers={viewers}
+        loading={viewersLoading}
+        title="Liked by"
+        timeKey="liked_at"
+      />
     </motion.article>
   );
 }

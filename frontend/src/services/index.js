@@ -49,6 +49,8 @@ export const feedsService = {
   save:     (id) => unwrap(api.post(`/feeds/posts/${id}/save`)),
   comments: (id, body) => unwrap(body ? api.post(`/feeds/posts/${id}/comments`, { body }) : api.get(`/feeds/posts/${id}/comments`)),
   viewStory: (id) => unwrap(api.post(`/feeds/stories/${id}/view`)),
+  storyViewers: (id) => unwrap(api.get(`/feeds/stories/${id}/viewers`)),
+  postViewers: (id) => unwrap(api.get(`/feeds/posts/${id}/viewers`)),
   bookmarks: () => unwrap(api.get("/feeds/bookmarks")),
   userPosts: (username, kind = "post") => unwrap(api.get(`/feeds/users/${username}/posts`, { params: { kind } })),
 };

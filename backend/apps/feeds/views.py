@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import Q
+from django.db.models import Count, F, Q
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -84,6 +84,7 @@ def stories(request):
             expires_at__gt=timezone.now(),
         )
         .select_related("author__profile")
+        .annotate(views_count=Count("views", filter=~Q(views__user=F("author"))))
         .order_by("author_id", "-created_at")
     )
     return ok(PostSerializer(qs, many=True, context=_ctx(request)).data)
@@ -198,9 +199,56 @@ def view_story(request, public_id: str):
         push_to_user(post.author_id, "story.view", {
             "post": str(post.public_id),
             "by": request.user.username,
-            "views_count": post.views.count(),
+            "views_count": post.views.exclude(user=post.author).count(),
         })
     return ok({"viewed": True})
+
+
+@api_view(["GET"])
+def story_viewers(request, public_id: str):
+    """Return list of users who viewed a story, with timestamps."""
+    post = Post.objects.filter(public_id=public_id, kind=Post.STORY, author=request.user).first()
+    if not post:
+        return Response({"ok": False, "error": {"code": "not_found", "message": "Not found or not yours"}}, status=404)
+    views = (
+        StoryView.objects.filter(post=post)
+        .exclude(user=request.user)
+        .select_related("user__profile")
+        .order_by("-at")
+    )
+    data = [
+        {
+            "username": v.user.username,
+            "display_name": v.user.display_name,
+            "avatar": v.user.profile.avatar.url if hasattr(v.user, "profile") and v.user.profile.avatar else None,
+            "viewed_at": v.at.isoformat(),
+        }
+        for v in views
+    ]
+    return ok({"viewers": data, "count": len(data)})
+
+
+@api_view(["GET"])
+def post_viewers(request, public_id: str):
+    """Return who liked a post/reel (serves as 'seen' indicator for posts/reels)."""
+    post = Post.objects.filter(public_id=public_id, author=request.user).first()
+    if not post:
+        return Response({"ok": False, "error": {"code": "not_found", "message": "Not found or not yours"}}, status=404)
+    likes = (
+        Like.objects.filter(post=post)
+        .select_related("user__profile")
+        .order_by("-at")
+    )
+    data = [
+        {
+            "username": l.user.username,
+            "display_name": l.user.display_name,
+            "avatar": l.user.profile.avatar.url if hasattr(l.user, "profile") and l.user.profile.avatar else None,
+            "liked_at": l.at.isoformat(),
+        }
+        for l in likes
+    ]
+    return ok({"viewers": data, "count": len(data)})
 
 
 @api_view(["GET"])

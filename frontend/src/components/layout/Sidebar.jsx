@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { FiHome, FiMessageCircle, FiUserPlus, FiCompass, FiFilm, FiUser, FiSettings, FiBell } from "react-icons/fi";
+import { FiHome, FiMessageCircle, FiUserPlus, FiCompass, FiFilm, FiSettings, FiBell } from "react-icons/fi";
 import { connectionsService } from "../../services";
 import { useNotificationStore } from "../../stores/notificationStore";
 import { useChatStore } from "../../stores/chatStore";
@@ -14,7 +14,6 @@ const items = [
   { to: "/notifications", label: "Notifications", icon: FiBell,          key: "notifications" },
   { to: "/discover",      label: "Discover",      icon: FiCompass },
   { to: "/reels",         label: "Reels",         icon: FiFilm },
-  { to: "/profile",       label: "Profile",       icon: FiUser },
   { to: "/settings",      label: "Settings",      icon: FiSettings },
 ];
 

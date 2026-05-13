@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "../hooks/useTheme.jsx";
 import { authService, notificationsService } from "../services";
+import { useAlertStore } from "../stores/alertStore";
 
 export default function Settings() {
   const { theme, setTheme } = useTheme();
@@ -14,10 +15,11 @@ export default function Settings() {
   };
 
   const enablePush = async () => {
+    const showAlert = useAlertStore.getState().showAlert;
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
     const reg = await navigator.serviceWorker.ready;
     const { public_key } = await notificationsService.vapidKey();
-    if (!public_key) return alert("Push not configured on server");
+    if (!public_key) return showAlert("Push notifications are not configured on the server yet. Please contact an administrator.", { title: "Not available", variant: "warning" });
     const perm = await Notification.requestPermission();
     if (perm !== "granted") return;
     const sub = await reg.pushManager.subscribe({

@@ -4,6 +4,7 @@ import Splash from "./components/startup/Splash.jsx";
 import RouteFallback from "./components/ui/RouteFallback.jsx";
 import MainLayout from "./layouts/MainLayout.jsx";
 import AuthLayout from "./layouts/AuthLayout.jsx";
+import AlertDialog from "./components/ui/AlertDialog.jsx";
 import { useAuthStore } from "./stores/authStore";
 import { authService } from "./services";
 
@@ -55,6 +56,8 @@ export default function App() {
   if (phase !== "ready") return <Splash onComplete={onSplashDone} />;
 
   return (
+    <>
+    <AlertDialog />
     <Routes>
       <Route path="/auth" element={<AuthLayout />}>
         <Route index element={<Navigate to="login" replace />} />
@@ -76,5 +79,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

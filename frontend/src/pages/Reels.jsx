@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { FiHeart, FiMessageCircle, FiSend, FiVolume2, FiVolumeX, FiTrash2 } from "react-icons/fi";
+import { FiHeart, FiMessageCircle, FiSend, FiVolume2, FiVolumeX, FiTrash2, FiEye } from "react-icons/fi";
 import { feedsService } from "../services";
 import { useAuthStore } from "../stores/authStore";
+import { useAlertStore } from "../stores/alertStore";
 import ComposeFab from "../components/composer/ComposeFab.jsx";
+import ViewersPanel from "../components/ui/ViewersPanel.jsx";
 
 function ReelItem({ post, onDeleted }) {
   const ref = useRef(null);
@@ -13,6 +15,10 @@ function ReelItem({ post, onDeleted }) {
   const [likes, setLikes] = useState(post.likes_count || 0);
   const me = useAuthStore((s) => s.user);
   const isMine = me?.username === post.author?.username;
+  const showConfirm = useAlertStore((s) => s.showConfirm);
+  const [showViewers, setShowViewers] = useState(false);
+  const [viewers, setViewers] = useState([]);
+  const [viewersLoading, setViewersLoading] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
@@ -42,14 +48,29 @@ function ReelItem({ post, onDeleted }) {
   };
 
   const onDelete = async () => {
-    if (!window.confirm("Delete this reel permanently?")) return;
+    const ok = await showConfirm("This reel will be permanently deleted. This action cannot be undone.", { title: "Delete reel?", confirmText: "Delete", variant: "danger" });
+    if (!ok) return;
     try {
       await feedsService.remove(post.public_id);
       onDeleted?.(post.public_id);
     } catch {}
   };
 
+  const openReelViewers = async () => {
+    setShowViewers(true);
+    setViewersLoading(true);
+    try {
+      const res = await feedsService.postViewers(post.public_id);
+      setViewers(res.viewers || []);
+    } catch {
+      setViewers([]);
+    } finally {
+      setViewersLoading(false);
+    }
+  };
+
   return (
+    <>
     <motion.section
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="snap-start h-full flex items-center justify-center relative"
@@ -89,6 +110,12 @@ function ReelItem({ post, onDeleted }) {
             <span className="text-[11px]">Delete</span>
           </button>
         )}
+        {isMine && (
+          <button onClick={openReelViewers} className="flex flex-col items-center gap-1">
+            <FiEye size={22} />
+            <span className="text-[11px]">Likes</span>
+          </button>
+        )}
       </div>
 
       {/* Caption */}
@@ -97,6 +124,15 @@ function ReelItem({ post, onDeleted }) {
         {post.caption && <div className="text-sm mt-1 line-clamp-3">{post.caption}</div>}
       </div>
     </motion.section>
+    <ViewersPanel
+      open={showViewers}
+      onClose={() => setShowViewers(false)}
+      viewers={viewers}
+      loading={viewersLoading}
+      title="Liked by"
+      timeKey="liked_at"
+    />
+    </>
   );
 }
 

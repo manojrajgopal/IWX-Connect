@@ -7,27 +7,51 @@ import { authService, feedsService } from "../services";
 import Avatar from "../components/ui/Avatar.jsx";
 import ComposeFab from "../components/composer/ComposeFab.jsx";
 
+function LazyMediaItem({ p }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); io.disconnect(); } },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(p.media_url || "");
+
+  return (
+    <motion.div
+      ref={ref}
+      key={p.public_id}
+      whileHover={{ scale: 1.01 }}
+      className="aspect-square overflow-hidden relative"
+      style={{ background: "var(--bg-surface-2)", borderRadius: 4 }}
+    >
+      {!visible ? (
+        <div className="w-full h-full skel" />
+      ) : isVideo ? (
+        <video src={p.media_url} muted className="w-full h-full object-cover" />
+      ) : p.media_url ? (
+        <img src={p.media_url} alt="" loading="lazy" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-xs p-2 text-center" style={{ color: "var(--text-muted)" }}>
+          {p.caption?.slice(0, 80) || ""}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 function PostsGrid({ items, emptyText }) {
   if (!items?.length) return <div className="py-16 text-center text-sm" style={{ color: "var(--text-muted)" }}>{emptyText}</div>;
   return (
     <div className="grid grid-cols-3 gap-1 md:gap-2">
-      {items.map((p) => {
-        const isVideo = /\.(mp4|webm|mov|m4v)(\?|$)/i.test(p.media_url || "");
-        return (
-          <motion.div
-            key={p.public_id}
-            whileHover={{ scale: 1.01 }}
-            className="aspect-square overflow-hidden relative"
-            style={{ background: "var(--bg-surface-2)", borderRadius: 4 }}
-          >
-            {isVideo
-              ? <video src={p.media_url} muted className="w-full h-full object-cover" />
-              : p.media_url
-                ? <img src={p.media_url} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-xs p-2 text-center" style={{ color: "var(--text-muted)" }}>{p.caption?.slice(0, 80) || ""}</div>}
-          </motion.div>
-        );
-      })}
+      {items.map((p) => <LazyMediaItem key={p.public_id} p={p} />)}
     </div>
   );
 }

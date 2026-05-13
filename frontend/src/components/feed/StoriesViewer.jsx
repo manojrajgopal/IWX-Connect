@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { FiX, FiChevronLeft, FiChevronRight, FiTrash2 } from "react-icons/fi";
+import { FiX, FiChevronLeft, FiChevronRight, FiTrash2, FiMoreVertical, FiEye } from "react-icons/fi";
 import { feedsService } from "../../services";
 import { useUIStore } from "../../stores/uiStore";
 import { useAuthStore } from "../../stores/authStore";
+import { useAlertStore } from "../../stores/alertStore";
 import Avatar from "../ui/Avatar.jsx";
+import ViewersPanel from "../ui/ViewersPanel.jsx";
 
 const STORY_DURATION_MS = 5000;
 
@@ -16,7 +18,12 @@ export default function StoriesViewer() {
   const close = useUIStore((s) => s.closeStoryViewer);
   const openViewer = useUIStore((s) => s.openStoryViewer);
   const me = useAuthStore((s) => s.user);
+  const showConfirm = useAlertStore((s) => s.showConfirm);
   const [progress, setProgress] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showViewers, setShowViewers] = useState(false);
+  const [viewers, setViewers] = useState([]);
+  const [viewersLoading, setViewersLoading] = useState(false);
   const rafRef = useRef(null);
   const startRef = useRef(0);
   const pausedRef = useRef(false);
@@ -34,7 +41,9 @@ export default function StoriesViewer() {
   }, [stories, index, openViewer]);
 
   const onDeleteStory = async () => {
-    if (!current || !window.confirm("Delete this story?")) return;
+    setShowMenu(false);
+    const ok = await showConfirm("This story will be permanently deleted. This action cannot be undone.", { title: "Delete story?", confirmText: "Delete", variant: "danger" });
+    if (!ok || !current) return;
     pausedRef.current = true;
     try {
       await feedsService.remove(current.public_id);
@@ -45,6 +54,26 @@ export default function StoriesViewer() {
     } catch {
       pausedRef.current = false;
     }
+  };
+
+  const openViewers = async () => {
+    setShowMenu(false);
+    pausedRef.current = true;
+    setShowViewers(true);
+    setViewersLoading(true);
+    try {
+      const res = await feedsService.storyViewers(current.public_id);
+      setViewers(res.viewers || []);
+    } catch {
+      setViewers([]);
+    } finally {
+      setViewersLoading(false);
+    }
+  };
+
+  const closeViewers = () => {
+    setShowViewers(false);
+    pausedRef.current = false;
   };
 
   // Mark viewed
@@ -65,6 +94,8 @@ export default function StoriesViewer() {
     const tick = (now) => {
       if (pausedRef.current) {
         if (!pauseStart) pauseStart = now;
+        rafRef.current = requestAnimationFrame(tick);
+        return;
       } else if (pauseStart) {
         pauseAccum += now - pauseStart;
         pauseStart = 0;
@@ -77,6 +108,7 @@ export default function StoriesViewer() {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, current, advance]);
 
   // Keyboard controls
@@ -97,6 +129,7 @@ export default function StoriesViewer() {
   const video = isVideo(media);
 
   return createPortal(
+    <>
     <AnimatePresence>
       <motion.div
         key="story-backdrop"
@@ -105,8 +138,8 @@ export default function StoriesViewer() {
         style={{ background: "rgba(0,0,0,0.95)" }}
         onClick={(e) => { if (e.target === e.currentTarget) close(); }}
         onMouseDown={() => { pausedRef.current = true; }}
-        onMouseUp={() => { pausedRef.current = false; }}
-        onMouseLeave={() => { pausedRef.current = false; }}
+        onMouseUp={() => { if (!showMenu && !showViewers) pausedRef.current = false; }}
+        onMouseLeave={() => { if (!showMenu && !showViewers) pausedRef.current = false; }}
       >
         <button
           className="absolute top-4 right-4 text-white p-2 rounded-full z-20"
@@ -135,7 +168,7 @@ export default function StoriesViewer() {
 
         <div className="relative flex flex-col" style={{ width: "min(420px, 96vw)", height: "min(80vh, 720px)" }}>
           {/* Progress bars */}
-          <div className="absolute top-2 inset-x-3 flex gap-1 z-10">
+          <div className="absolute top-2 inset-x-3 flex gap-1 z-20">
             {stories.map((_, i) => (
               <div key={i} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.25)" }}>
                 <div className="h-full" style={{
@@ -147,19 +180,52 @@ export default function StoriesViewer() {
             ))}
           </div>
           {/* Header */}
-          <div className="absolute top-6 inset-x-3 flex items-center gap-3 z-10 pt-2">
+          <div className="absolute top-6 inset-x-3 flex items-center gap-3 z-20 pt-2">
             <Avatar user={current.author} size={32} />
             <div className="flex-1 text-white text-sm font-medium" style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
               @{current.author?.username}
             </div>
             {isMine && (
-              <button
-                onClick={onDeleteStory}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm"
-                style={{ background: "rgba(239,68,68,0.8)", color: "#fff" }}
-              >
-                <FiTrash2 size={14} /> Delete
-              </button>
+              <div className="relative">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowMenu((v) => { const next = !v; pausedRef.current = next; return next; }); }}
+                  className="flex items-center justify-center w-8 h-8 rounded-full"
+                  style={{ background: "rgba(0,0,0,0.4)", color: "#fff" }}
+                  aria-label="Story options"
+                >
+                  <FiMoreVertical size={18} />
+                </button>
+                <AnimatePresence>
+                  {showMenu && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => { setShowMenu(false); pausedRef.current = false; }} />
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 top-full mt-1 z-20 rounded-lg shadow-xl py-1 min-w-[160px] overflow-hidden"
+                        style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)" }}
+                      >
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openViewers(); }}
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm transition-colors hover:opacity-80"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          <FiEye size={15} /> Seen by
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onDeleteStory(); }}
+                          className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm transition-colors hover:opacity-80"
+                          style={{ color: "#ef4444" }}
+                        >
+                          <FiTrash2 size={15} /> Delete story
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
           </div>
 
@@ -173,13 +239,33 @@ export default function StoriesViewer() {
               : <img key={current.public_id} src={media} alt="" className="max-h-full max-w-full object-contain" />}
           </div>
           {current.caption && (
-            <div className="absolute bottom-4 inset-x-4 text-white text-sm text-center" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.7)" }}>
+            <div className={`absolute inset-x-4 text-white text-sm text-center ${isMine ? "bottom-14" : "bottom-4"}`} style={{ textShadow: "0 1px 3px rgba(0,0,0,0.7)" }}>
               {current.caption}
             </div>
           )}
+          {/* Seen-by bar for own stories */}
+          {isMine && (
+            <button
+              className="absolute bottom-0 inset-x-0 z-20 flex items-center justify-center gap-2 py-3 text-white/80 hover:text-white transition-colors"
+              style={{ background: "linear-gradient(transparent, rgba(0,0,0,0.6))", borderRadius: "0 0 8px 8px" }}
+              onClick={(e) => { e.stopPropagation(); openViewers(); }}
+            >
+              <FiEye size={16} />
+              <span className="text-sm font-medium">{current.views_count ?? 0}</span>
+            </button>
+          )}
         </div>
       </motion.div>
-    </AnimatePresence>,
+    </AnimatePresence>
+    <ViewersPanel
+      open={showViewers}
+      onClose={closeViewers}
+      viewers={viewers}
+      loading={viewersLoading}
+      title="Seen by"
+      timeKey="viewed_at"
+    />
+    </>,
     document.body
   );
 }
