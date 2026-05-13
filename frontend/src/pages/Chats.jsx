@@ -35,13 +35,11 @@ export default function Chats() {
   // Auto-open a specific conversation when navigated with state
   useEffect(() => {
     const openId = location.state?.openConversation;
-    if (openId && conversations.data?.length && !autoOpenHandled.current) {
+    if (openId && conversations.data && !autoOpenHandled.current) {
       autoOpenHandled.current = true;
+      setActiveId(openId);
       const conv = conversations.data.find((c) => c.public_id === openId);
-      if (conv) {
-        setActiveId(openId);
-        if (conv.unread > 0) markAllRead(openId, Infinity);
-      }
+      if (conv && conv.unread > 0) markAllRead(openId, Infinity);
       // Clear the state so refreshing doesn't re-open
       window.history.replaceState({}, "");
     }
