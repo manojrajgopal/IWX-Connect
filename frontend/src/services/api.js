@@ -9,8 +9,9 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = useAuthStore.getState().access;
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const { access, session } = useAuthStore.getState();
+  if (access) config.headers.Authorization = `Bearer ${access}`;
+  if (session) config.headers["X-Session-Token"] = session;
   return config;
 });
 

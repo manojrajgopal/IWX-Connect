@@ -11,6 +11,7 @@ from apps.security.services.device import get_or_create_device
 from apps.security.tokens import derive_session_key, sign_access_token, verify_access_token
 
 SESSION_COOKIE = "iwx_sid"
+SESSION_HEADER = "HTTP_X_SESSION_TOKEN"
 
 
 def _classify_ip(request) -> str:
@@ -59,8 +60,7 @@ def clear_session_cookie(response):
     response.delete_cookie(SESSION_COOKIE, path="/")
 
 
-def parse_session_cookie(request) -> Session | None:
-    raw = request.COOKIES.get(SESSION_COOKIE)
+def _resolve_session(raw: str, request) -> Session | None:
     if not raw or "." not in raw:
         return None
     pid, secret = raw.split(".", 1)
@@ -73,6 +73,16 @@ def parse_session_cookie(request) -> Session | None:
         return None
     request._iwx_session_secret = secret
     return sess
+
+
+def parse_session_cookie(request) -> Session | None:
+    raw = request.COOKIES.get(SESSION_COOKIE)
+    sess = _resolve_session(raw, request)
+    if sess:
+        return sess
+    # Fallback: read from X-Session-Token header (mobile cross-origin)
+    raw = request.META.get(SESSION_HEADER, "")
+    return _resolve_session(raw, request)
 
 
 def get_current(request) -> Session | None:

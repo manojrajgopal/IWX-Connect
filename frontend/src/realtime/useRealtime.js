@@ -28,6 +28,7 @@ function showOSNotification(title, body) {
 
 export function useRealtime() {
   const access = useAuthStore((s) => s.access);
+  const session = useAuthStore((s) => s.session);
   const qc = useQueryClient();
   const sockRef = useRef(null);
   const hbRef = useRef(null);
@@ -64,7 +65,7 @@ export function useRealtime() {
         const proto = window.location.protocol === "https:" ? "wss" : "ws";
         wsBase = `${proto}://${window.location.host}`;
       }
-      const url = `${wsBase}/ws/hub?access=${encodeURIComponent(access)}`;
+      const url = `${wsBase}/ws/hub?access=${encodeURIComponent(access)}${session ? `&sid=${encodeURIComponent(session)}` : ""}`;
       sock = new WebSocket(url);
       sockRef.current = sock;
       window.__iwxSocket = sock;
@@ -98,7 +99,7 @@ export function useRealtime() {
       }
       window.__iwxSocket = null;
     };
-  }, [access, qc]);
+  }, [access, session, qc]);
 
   return sockRef;
 }

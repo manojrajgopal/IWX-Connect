@@ -150,6 +150,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 FRONTEND_ORIGIN = env("FRONTEND_ORIGIN", "http://localhost:5173")
 CORS_ALLOWED_ORIGINS = [FRONTEND_ORIGIN]
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "origin",
+    "x-csrftoken",
+    "x-session-token",
+]
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"

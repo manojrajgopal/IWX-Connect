@@ -35,7 +35,8 @@ def signup(request):
     )
     sess, access = session_service.create_session(user, request)
     log_event(user, "auth.signup", request, {"username": user.username})
-    resp = Response({"ok": True, "data": {"access": access, "user": MeSerializer(user).data}}, status=201)
+    session_token = f"{sess.public_id}.{sess._iwx_emit_secret}"
+    resp = Response({"ok": True, "data": {"access": access, "session": session_token, "user": MeSerializer(user).data}}, status=201)
     session_service.attach_session_cookie(resp, sess)
     return resp
 
@@ -52,7 +53,8 @@ def login(request):
         return Response({"ok": False, "error": {"code": "invalid_credentials", "message": "Invalid credentials"}}, status=401)
     sess, access = session_service.create_session(user, request)
     log_event(user, "auth.login", request, {"device": device_service.fingerprint(request)})
-    resp = Response({"ok": True, "data": {"access": access, "user": MeSerializer(user).data}})
+    session_token = f"{sess.public_id}.{sess._iwx_emit_secret}"
+    resp = Response({"ok": True, "data": {"access": access, "session": session_token, "user": MeSerializer(user).data}})
     session_service.attach_session_cookie(resp, sess)
     return resp
 

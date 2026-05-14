@@ -18,6 +18,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(false);
   const setAccess = useAuthStore((s) => s.setAccess);
+  const setSession = useAuthStore((s) => s.setSession);
   const setUser = useAuthStore((s) => s.setUser);
   const nav = useNavigate();
 
@@ -27,6 +28,7 @@ export default function Login() {
     try {
       const data = await authService.login(form);
       setAccess(data.access);
+      setSession(data.session);
       setUser(data.user);
       nav("/");
     } catch (e) {

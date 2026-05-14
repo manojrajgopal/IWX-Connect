@@ -35,6 +35,7 @@ export default function Signup() {
   const [copied, setCopied] = useState(false);
 
   const setAccess = useAuthStore((s) => s.setAccess);
+  const setSession = useAuthStore((s) => s.setSession);
   const setUser = useAuthStore((s) => s.setUser);
   const nav = useNavigate();
 
@@ -77,6 +78,7 @@ export default function Signup() {
         display_name: form.display_name,
       });
       setAccess(data.access);
+      setSession(data.session);
       setUser(data.user);
       nav("/");
     } catch (ex) {

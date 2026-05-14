@@ -37,6 +37,9 @@ class TokenAuthMiddleware(BaseMiddleware):
                         k, v = part.strip().split("=", 1)
                         cookies[k] = v
         sid = cookies.get(SESSION_COOKIE)
+        # Fallback: read session token from query param (mobile cross-origin)
+        if not sid and "sid" in qs:
+            sid = qs["sid"][0]
         user, sess = await _resolve(token, sid)
         scope["user"] = user
         scope["session"] = sess
